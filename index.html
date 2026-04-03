@@ -95,7 +95,7 @@
             }, 1000);
         };
 
-        // --- 5. CHECKOUT / SUBMIT ORDER (FIXED VERSION) ---
+        // --- 5. CHECKOUT / SUBMIT ORDER (AUTO-MESSAGE VERSION) ---
         window.submitOrder = async () => {
             const name = document.getElementById('c-name').value;
             const addr = document.getElementById('c-addr').value;
@@ -117,21 +117,21 @@
                 });
 
                 const orderID = docRef.id.slice(-5).toUpperCase();
-                let msg = `NYXEN ORDER #${orderID}\n`;
-                msg += `ID: ${docRef.id}\n\n`;
+                
+                // Gagawa tayo ng message format
+                let msg = `NYXEN ORDER #${orderID}\n\n`;
                 window.bag.forEach(i => msg += `• ${i.name} (₱${i.price})\n`);
-                msg += `\nTOTAL: ₱${total}\nName: ${name}\nAddr: ${addr}\n\n(PASTE THIS TO MESSENGER)`;
+                msg += `\nTOTAL: ₱${total}\nName: ${name}\nAddr: ${addr}`;
 
-                // FIX: Gamit tayo ng Confirmation para payagan ng browser ang Clipboard Copy
-                if(confirm("✅ ORDER SAVED!\n\nI-click ang OK para i-copy ang order details at i-message kami sa Messenger para sa delivery.")) {
-                    try {
-                        await navigator.clipboard.writeText(msg);
-                        alert("COPIED! I-paste mo na lang sa chat natin.");
-                    } catch (err) {
-                        alert("Note: I-screenshot mo na lang ito Bro, hindi kami pinayagan ng browser mo na mag-auto copy: #" + orderID);
-                    }
-                    window.location.href = `https://m.me/296084720263105`; 
-                }
+                // PLAN B: Encode para sa Messenger URL (No more clipboard permission errors!)
+                const encodedMsg = encodeURIComponent(msg);
+                const messengerLink = `https://m.me/296084720263105?text=${encodedMsg}`;
+
+                alert(`✅ ORDER SAVED (#${orderID})\n\nMapupunta ka na sa Messenger para i-send ang order details. I-click ang OK, Bro!`);
+                
+                // Redirect directly with the message attached
+                window.location.href = messengerLink;
+
             } catch (e) { alert("Error saving order: " + e.message); }
         };
 
