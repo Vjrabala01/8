@@ -122,21 +122,21 @@
             try {
                 const itemsTotal = window.bag.reduce((s, i) => s + i.price, 0);
                 
-                // --- NEW SHIPPING LOGIC ---
+                // --- DYNAMIC SHIPPING CALCULATION ---
                 let shippingFee = 125; // Default Rate
-                let locTag = "Outside Negros";
+                let locName = "Outside Negros";
                 const cleanAddr = addr.toLowerCase();
 
                 if (window.bag.length >= 3) {
                     shippingFee = 0;
-                    locTag = "FREE SHIPPING UNLOCKED";
+                    locName = "PROMO: FREE SHIPPING";
                 } else {
                     if (cleanAddr.includes("bacolod")) {
                         shippingFee = 50;
-                        locTag = "Bacolod City";
+                        locName = "Bacolod City";
                     } else if (cleanAddr.includes("negros")) {
                         shippingFee = 110;
-                        locTag = "Within Negros";
+                        locName = "Within Negros";
                     }
                 }
 
@@ -147,8 +147,6 @@
                     phoneNumber: phone,
                     address: addr,
                     items: window.bag, 
-                    itemsTotal: itemsTotal,
-                    shippingFee: shippingFee,
                     totalAmount: finalTotal,
                     status: "Pending", 
                     date: Date.now()
@@ -158,9 +156,9 @@
                 let msg = `NYXEN PRIVATE COLLECTION ORDER #${orderID}\n\n`;
                 window.bag.forEach(i => msg += `• ${i.name}\n`);
                 msg += `\nSubtotal: ₱${itemsTotal}`;
-                msg += `\nShipping: ₱${shippingFee} (${locTag})`;
+                msg += `\nShipping: ₱${shippingFee} (${locName})`;
                 msg += `\nTOTAL: ₱${finalTotal}`;
-                msg += `\n\nName: ${name}\nPhone: ${phone}\nAddr: ${addr}`;
+                msg += `\n\nRecipient: ${name}\nPhone: ${phone}\nAddress: ${addr}`;
                 
                 window.location.href = `https://m.me/296084720263105?text=${encodeURIComponent(msg)}`;
             } catch (e) { window.notify("Order failed."); }
@@ -215,7 +213,6 @@
         .msg-orange { color: #fff; background: var(--orange); }
         .msg-green { color: #fff; background: var(--green); }
         .msg-default { color: #aaa; border: 1px dashed #333; }
-        .shipping-rates-info { font-size: 0.6rem; color: #666; margin-top: 10px; text-align: left; background: #000; padding: 10px; border-radius: 8px; }
         .qty-controls { display: flex; gap: 10px; align-items: center; }
         .qty-btn { background: #222; color: #fff; border: 1px solid #444; width: 26px; height: 26px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; }
         #toast { position: fixed; top: -100px; left: 50%; transform: translateX(-50%); background: rgba(20, 20, 20, 0.95); border: 1px solid var(--amethyst); color: #fff; padding: 12px 25px; border-radius: 50px; font-size: 0.8rem; z-index: 5000; transition: 0.5s cubic-bezier(0.16, 1, 0.3, 1); backdrop-filter: blur(10px); box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
@@ -288,10 +285,6 @@
             <div id="cart-items" style="margin:15px 0; text-align:left; font-size:0.8rem; max-height: 150px; overflow-y: auto;"></div>
             <div id="cart-total" style="font-weight:bold; margin-bottom:15px; font-size: 1.2rem; letter-spacing: 1px;">TOTAL: ₱0</div>
             
-            <div class="shipping-rates-info">
-                <strong>SHIPPING RATES:</strong><br>
-                • Bacolod: ₱50 | Negros: ₱110 | Outside: ₱125
-            </div>
             <br>
             <input type="text" id="c-name" placeholder="Full Name">
             <input type="tel" id="c-phone" placeholder="Phone Number">
@@ -316,7 +309,7 @@
             document.getElementById('cart-count').innerText = count;
             
             const sMsg = document.getElementById('shipping-msg');
-            sMsg.className = ""; // Reset classes
+            sMsg.className = ""; 
 
             if(count === 0) {
                 sMsg.innerText = "COLLECT TOTAL OF 3 BOTTLES FOR FREE SHIPPING";
