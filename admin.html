@@ -58,11 +58,6 @@
             const docRef = doc(db, "inventory", name);
             try {
                 await updateDoc(docRef, { qty: increment(val) });
-                // Automatic switch based on qty
-                onSnapshot(docRef, (d) => {
-                    const currentQty = d.data().qty;
-                    updateDoc(docRef, { stock: currentQty > 0 ? "in" : "out" });
-                });
             } catch (e) { console.error(e); }
         };
 
@@ -78,18 +73,31 @@
                     promoImg: img, endTime: end, discount: disc, active: true, localQuick: local 
                 });
                 alert("🚀 LIVE: Promo Pop-up is now active on your site!");
-                // Clear fields
                 document.getElementById('promo-img').value = "";
                 document.getElementById('promo-end').value = "";
                 document.getElementById('promo-perc').value = "";
             } catch (e) { alert("Error: " + e.message); }
         };
 
-        // --- 3. SHIPPING & ORDER MANAGER ---
+        // --- 3. SHIPPING & ORDER MANAGER (UPDATED WITH J&T TRACKING) ---
         window.updateOrderStatus = async (id, status) => {
+            let trackingNum = "";
+            let estArrival = "";
+
+            if (status === "Shipped") {
+                trackingNum = prompt("Enter J&T Tracking Number:");
+                estArrival = prompt("Enter Estimated Delivery Date (e.g. April 10-12):");
+            } else if (status === "Packing") {
+                estArrival = prompt("Estimated ship out date? (Optional):");
+            }
+
             try {
-                await updateDoc(doc(db, "orders", id), { status });
-                alert("Order status updated to " + status);
+                const updateData = { status: status };
+                if (trackingNum) updateData.tracking = trackingNum;
+                if (estArrival) updateData.estimatedArrival = estArrival;
+
+                await updateDoc(doc(db, "orders", id), updateData);
+                alert(`Order #${id.slice(-5).toUpperCase()} updated to ${status}`);
             } catch (e) { alert("Error: " + e.message); }
         };
 
@@ -148,7 +156,7 @@
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
             document.getElementById(tab).classList.add('active');
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('tab-active'));
-            event.target.classList.add('tab-active');
+            if(event) event.target.classList.add('tab-active');
         };
     </script>
 
