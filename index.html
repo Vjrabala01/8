@@ -122,30 +122,34 @@
             try {
                 const itemsTotal = window.bag.reduce((s, i) => s + i.price, 0);
                 
-                // Shipping logic based on address
-                let shippingFee = 125; // Default Outside Negros
-                let location = "Outside Negros";
+                // --- NEW SHIPPING LOGIC ---
+                let shippingFee = 125; // Default Rate
+                let locTag = "Outside Negros";
                 const cleanAddr = addr.toLowerCase();
 
                 if (window.bag.length >= 3) {
                     shippingFee = 0;
-                    location = "FREE SHIPPING UNLOCKED";
+                    locTag = "FREE SHIPPING UNLOCKED";
                 } else {
                     if (cleanAddr.includes("bacolod")) {
                         shippingFee = 50;
-                        location = "Bacolod City";
+                        locTag = "Bacolod City";
                     } else if (cleanAddr.includes("negros")) {
                         shippingFee = 110;
-                        location = "Within Negros";
+                        locTag = "Within Negros";
                     }
                 }
+
+                const finalTotal = itemsTotal + shippingFee;
 
                 const docRef = await addDoc(collection(db, "orders"), {
                     customerName: name, 
                     phoneNumber: phone,
                     address: addr,
                     items: window.bag, 
-                    totalAmount: itemsTotal + shippingFee,
+                    itemsTotal: itemsTotal,
+                    shippingFee: shippingFee,
+                    totalAmount: finalTotal,
                     status: "Pending", 
                     date: Date.now()
                 });
@@ -153,9 +157,9 @@
                 const orderID = docRef.id.slice(-5).toUpperCase();
                 let msg = `NYXEN PRIVATE COLLECTION ORDER #${orderID}\n\n`;
                 window.bag.forEach(i => msg += `• ${i.name}\n`);
-                msg += `\nItems: ₱${itemsTotal}`;
-                msg += `\nShipping: ₱${shippingFee} (${location})`;
-                msg += `\nTOTAL: ₱${itemsTotal + shippingFee}`;
+                msg += `\nSubtotal: ₱${itemsTotal}`;
+                msg += `\nShipping: ₱${shippingFee} (${locTag})`;
+                msg += `\nTOTAL: ₱${finalTotal}`;
                 msg += `\n\nName: ${name}\nPhone: ${phone}\nAddr: ${addr}`;
                 
                 window.location.href = `https://m.me/296084720263105?text=${encodeURIComponent(msg)}`;
@@ -291,7 +295,7 @@
             <br>
             <input type="text" id="c-name" placeholder="Full Name">
             <input type="tel" id="c-phone" placeholder="Phone Number">
-            <textarea id="c-addr" placeholder="Detailed Address (include City/Province)" rows="2"></textarea>
+            <textarea id="c-addr" placeholder="Detailed Address (City/Province)" rows="2"></textarea>
             
             <button class="checkout-btn" onclick="submitOrder()">CHECKOUT VIA MESSENGER</button>
             <p onclick="document.getElementById('cart-overlay').style.display='none'" style="cursor:pointer; margin-top:20px; font-size:0.65rem; color:#666; letter-spacing: 1px;">BACK TO SHOP</p>
