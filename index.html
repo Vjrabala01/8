@@ -165,37 +165,63 @@
     </script>
 
     <style>
-        :root { --amethyst: #9b59b2; --bg: #050505; --card: #111; }
+        :root { --amethyst: #9b59b2; --bg: #050505; --card: #121212; }
         body { background: var(--bg); color: #fff; font-family: 'Inter', sans-serif; margin: 0; padding: 0; user-select: none; }
-        header { text-align: center; padding: 60px 20px; }
-        .logo { font-size: 3rem; font-weight: 200; letter-spacing: 12px; margin-bottom: 5px; }
-        .tagline { color: var(--amethyst); font-size: 0.65rem; letter-spacing: 4px; text-transform: uppercase; cursor: pointer; }
-        #local-banner { display: none; background: var(--amethyst); text-align: center; padding: 8px; font-size: 0.65rem; font-weight: bold; position: sticky; top: 0; z-index: 100; }
-        .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; max-width: 1200px; margin: 0 auto; padding: 20px; }
-        .product-card { background: var(--card); border: 1px solid #222; position: relative; transition: 0.4s; overflow: hidden; }
+        
+        /* Header Upgrade */
+        header { text-align: center; padding: 60px 20px; background: linear-gradient(to bottom, #111, #050505); }
+        .logo { font-size: 3rem; font-weight: 200; letter-spacing: 12px; margin-bottom: 5px; text-shadow: 0 0 20px rgba(155, 89, 182, 0.3); }
+        .tagline { color: var(--amethyst); font-size: 0.65rem; letter-spacing: 4px; text-transform: uppercase; cursor: pointer; opacity: 0.8; }
+        
+        #local-banner { display: none; background: var(--amethyst); text-align: center; padding: 8px; font-size: 0.65rem; font-weight: bold; position: sticky; top: 0; z-index: 100; box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
+        
+        /* Grid and Cards */
+        .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 25px; max-width: 1200px; margin: 0 auto; padding: 20px; }
+        .product-card { background: var(--card); border: 1px solid #222; position: relative; transition: 0.4s ease; overflow: hidden; border-radius: 4px; }
+        .product-card:hover { border-color: var(--amethyst); transform: translateY(-5px); box-shadow: 0 10px 30px rgba(155, 89, 182, 0.1); }
         .product-card.out { opacity: 0.4; }
-        .portrait-box { aspect-ratio: 2/3; overflow: hidden; }
-        .portrait-box img { width: 100%; height: 100%; object-fit: cover; filter: brightness(0.7); }
-        .price-label { position: absolute; top: 15px; right: 0; background: var(--amethyst); padding: 5px 15px; font-weight: bold; z-index: 5; }
-        .info { padding: 20px; text-align: center; }
-        .add-btn { background: #fff; color: #000; border: none; padding: 12px; width: 100%; font-weight: bold; cursor: pointer; margin-top: 15px; }
-        .cart-btn { position: fixed; bottom: 25px; right: 25px; background: var(--amethyst); padding: 15px 20px; border-radius: 50px; border: none; color: #fff; font-weight: bold; z-index: 1000; cursor: pointer; box-shadow: 0 10px 30px rgba(155, 89, 182, 0.5); }
-        .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); display: none; align-items: center; justify-content: center; z-index: 2000; padding: 20px; }
-        .modal { background: #111; padding: 25px; border-radius: 15px; border: 1px solid var(--amethyst); width: 100%; max-width: 380px; text-align: center; }
-        input, textarea { background: #1a1a1a; border: 1px solid #333; color: #fff; width: 100%; padding: 12px; border-radius: 8px; margin-bottom: 10px; box-sizing: border-box; font-family: inherit; }
-        .checkout-btn { background: var(--amethyst); color: #fff; border: none; padding: 15px; width: 100%; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        
+        .portrait-box { aspect-ratio: 2/3; overflow: hidden; background: #000; }
+        .portrait-box img { width: 100%; height: 100%; object-fit: cover; filter: brightness(0.8); transition: 0.5s; }
+        .product-card:hover img { filter: brightness(1); }
+        
+        .price-label { position: absolute; top: 15px; right: 0; background: var(--amethyst); padding: 6px 18px; font-weight: bold; z-index: 5; font-size: 0.9rem; clip-path: polygon(15% 0, 100% 0, 100% 100%, 0% 100%); }
+        .info { padding: 25px; text-align: center; }
+        .info h3 { font-size: 0.9rem; letter-spacing: 2px; text-transform: uppercase; margin: 0 0 8px 0; }
+        
+        /* Buttons Upgrade */
+        .add-btn { background: #fff; color: #000; border: none; padding: 14px; width: 100%; font-weight: bold; cursor: pointer; margin-top: 15px; font-size: 0.75rem; letter-spacing: 1px; transition: 0.3s; }
+        .add-btn:hover:not(:disabled) { background: var(--amethyst); color: #fff; }
+        
+        .cart-btn { position: fixed; bottom: 25px; right: 25px; background: var(--amethyst); padding: 16px 24px; border-radius: 50px; border: none; color: #fff; font-weight: bold; z-index: 1000; cursor: pointer; box-shadow: 0 8px 25px rgba(155, 89, 182, 0.4); transition: 0.3s; }
+        .cart-btn:active { transform: scale(0.95); }
 
-        /* App Popup Styling */
-        .app-popup { position: fixed; bottom: 95px; left: 20px; right: 20px; background: #111; border: 1px solid var(--amethyst); border-radius: 15px; padding: 12px; display: none; z-index: 999; box-shadow: 0 10px 30px rgba(0,0,0,0.8); animation: slideUp 0.5s ease-out; }
-        .app-popup-content { display: flex; align-items: center; gap: 12px; position: relative; }
+        /* Popups / Modals Upgrade (The Professional Look) */
+        .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); display: none; align-items: center; justify-content: center; z-index: 2000; padding: 20px; animation: fadeIn 0.3s ease; }
+        .modal { background: #111; padding: 35px 25px; border-radius: 20px; border: 1px solid rgba(155, 89, 182, 0.3); width: 100%; max-width: 380px; text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,0.5); position: relative; }
+        
+        input, textarea { background: #181818; border: 1px solid #333; color: #fff; width: 100%; padding: 14px; border-radius: 12px; margin-bottom: 15px; box-sizing: border-box; font-family: inherit; transition: 0.3s; }
+        input:focus, textarea:focus { border-color: var(--amethyst); outline: none; background: #202020; }
+        
+        .checkout-btn { background: var(--amethyst); color: #fff; border: none; padding: 16px; width: 100%; border-radius: 12px; font-weight: bold; cursor: pointer; font-size: 0.9rem; letter-spacing: 1px; box-shadow: 0 5px 15px rgba(155, 89, 182, 0.2); }
+
+        /* App Popup Styling (Professional Card) */
+        .app-popup { position: fixed; bottom: 100px; left: 20px; right: 20px; background: rgba(20, 20, 20, 0.95); backdrop-filter: blur(15px); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; padding: 15px; display: none; z-index: 999; box-shadow: 0 15px 40px rgba(0,0,0,0.6); animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
+        .app-popup-content { display: flex; align-items: center; gap: 15px; position: relative; }
         .app-popup-text { flex-grow: 1; text-align: left; }
-        .app-popup-text strong { font-size: 0.8rem; color: #fff; display: block; }
-        .app-popup-text p { font-size: 0.6rem; color: #888; margin: 2px 0 0; }
-        .install-btn-small { background: var(--amethyst); color: white; border: none; padding: 8px 15px; border-radius: 8px; font-size: 0.7rem; font-weight: bold; cursor: pointer; }
-        .close-popup { position: absolute; top: -15px; right: -5px; color: #888; font-size: 1.2rem; cursor: pointer; padding: 5px; }
-        @keyframes slideUp { from { transform: translateY(100px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .app-popup-text strong { font-size: 0.85rem; color: #fff; display: block; margin-bottom: 2px; }
+        .app-popup-text p { font-size: 0.65rem; color: #aaa; margin: 0; }
+        .install-btn-small { background: #fff; color: #000; border: none; padding: 10px 20px; border-radius: 10px; font-size: 0.75rem; font-weight: bold; cursor: pointer; }
+        .close-popup { position: absolute; top: -10px; right: -5px; color: #666; font-size: 1.4rem; cursor: pointer; padding: 5px; }
 
-        @media (max-width: 600px) { .product-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; } .logo { font-size: 1.8rem; } }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { transform: translateY(50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+        @media (max-width: 600px) { 
+            .product-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; padding: 12px; } 
+            .logo { font-size: 2rem; letter-spacing: 8px; }
+            .modal { padding: 30px 20px; width: 90%; }
+        }
     </style>
 </head>
 <body>
@@ -203,53 +229,73 @@
     
     <div id="app-install-popup" class="app-popup">
         <div class="app-popup-content">
-            <img src="icon.png" width="45" height="45" style="border-radius:10px;">
+            <img src="icon.png" width="50" height="50" style="border-radius:12px; box-shadow: 0 5px 15px rgba(0,0,0,0.3);">
             <div class="app-popup-text">
-                <strong>Install NYXEN App</strong>
-                <p>Add to home screen for elite experience!</p>
+                <strong>NYXEN Mobile</strong>
+                <p>Add to home screen for an elite shop experience.</p>
             </div>
-            <button onclick="showInstallGuide()" class="install-btn-small">INSTALL</button>
-            <span class="close-popup" onclick="closeAppPopup()">×</span>
+            <button onclick="showInstallGuide()" class="install-btn-small">ADD</button>
+            <span class="close-popup" onclick="closeAppPopup()">&times;</span>
         </div>
     </div>
 
     <div id="iphone-guide" class="overlay" onclick="this.style.display='none'">
         <div class="modal">
-            <h3 style="color:var(--amethyst)">HOW TO INSTALL</h3>
-            <p style="font-size:0.8rem; line-height:1.6; text-align: left;">
+            <div style="background:var(--amethyst); width:50px; height:50px; border-radius:50%; margin:0 auto 20px; display:flex; align-items:center; justify-content:center;">
+                <img src="icon.png" width="30">
+            </div>
+            <h3 style="letter-spacing:2px; font-size:1.1rem;">INSTALL NYXEN</h3>
+            <p style="font-size:0.8rem; color:#aaa; line-height:1.7; text-align: left; margin: 20px 0;">
                 1. Tap the <strong>Share</strong> icon (square with arrow up) <br>
-                2. Scroll down and tap <strong>'Add to Home Screen'</strong> <br>
-                3. Tap <strong>'Add'</strong> on the top right.
+                2. Scroll and tap <strong>'Add to Home Screen'</strong> <br>
+                3. Tap <strong>'Add'</strong> on the top right corner.
             </p>
             <button class="checkout-btn">GOT IT, BRO!</button>
         </div>
     </div>
 
-    <div id="promo-overlay" class="overlay" onclick="this.style.display='none'"><div class="modal" style="padding:0; border:none; background:transparent;"><img id="promo-popup-img" src="" style="width:100%; border-radius:15px;"></div></div>
+    <div id="promo-overlay" class="overlay" onclick="this.style.display='none'">
+        <div class="modal" style="padding:0; border:none; background:transparent; max-width:320px;">
+            <img id="promo-popup-img" src="" style="width:100%; border-radius:20px; box-shadow: 0 20px 40px rgba(0,0,0,0.8);">
+            <p style="margin-top:15px; font-size:0.6rem; letter-spacing:2px; color:rgba(255,255,255,0.5);">TAP ANYWHERE TO DISMISS</p>
+        </div>
+    </div>
     
     <div id="cart-overlay" class="overlay">
         <div class="modal">
-            <h3 style="color:var(--amethyst)">YOUR BAG</h3>
-            <div id="cart-items" style="margin:20px 0; text-align:left; font-size:0.75rem;"></div>
-            <div id="cart-total" style="font-weight:bold; border-top:1px solid #222; padding-top:10px; margin-bottom:20px;">TOTAL: ₱0</div>
-            <input type="text" id="c-name" placeholder="Full Name"><textarea id="c-addr" placeholder="Delivery Address"></textarea>
+            <h3 style="color:var(--amethyst); letter-spacing: 3px; font-size: 1rem;">MY COLLECTION</h3>
+            <div id="cart-items" style="margin:25px 0; text-align:left; font-size:0.8rem; max-height: 150px; overflow-y: auto; border-bottom: 1px solid #222; padding-bottom: 10px;"></div>
+            <div id="cart-total" style="font-weight:bold; padding-top:10px; margin-bottom:25px; font-size: 1.2rem; letter-spacing: 1px;">TOTAL: ₱0</div>
+            
+            <input type="text" id="c-name" placeholder="Full Name">
+            <textarea id="c-addr" placeholder="Detailed Delivery Address" rows="3"></textarea>
+            
             <button class="checkout-btn" onclick="submitOrder()">PROCEED TO MESSENGER</button>
-            <p onclick="document.getElementById('cart-overlay').style.display='none'" style="cursor:pointer; margin-top:15px; font-size:0.7rem; color:#888;">Back to Shop</p>
+            <p onclick="document.getElementById('cart-overlay').style.display='none'" style="cursor:pointer; margin-top:20px; font-size:0.65rem; color:#666; letter-spacing: 1px;">CONTINUE BROWSING</p>
         </div>
     </div>
 
-    <button class="cart-btn" onclick="document.getElementById('cart-overlay').style.display='flex'">BAG (<span id="cart-count">0</span>)</button>
-    <button onclick="trackOrder()" style="position:fixed; bottom:25px; left:25px; background:rgba(255,255,255,0.05); border:1px solid #222; color:#555; border-radius:50px; padding:8px 15px; font-size:0.6rem; cursor:pointer; z-index:1000;">TRACK ORDER</button>
+    <button class="cart-btn" onclick="document.getElementById('cart-overlay').style.display='flex'">
+        BAG (<span id="cart-count">0</span>)
+    </button>
     
-    <header><div class="logo">NYXEN</div><div class="tagline">Premium Inspired Fragrance</div></header>
+    <button onclick="trackOrder()" style="position:fixed; bottom:25px; left:25px; background:rgba(255,255,255,0.03); border:1px solid #222; color:#555; border-radius:50px; padding:10px 18px; font-size:0.65rem; cursor:pointer; z-index:1000; letter-spacing: 1px; backdrop-filter: blur(5px);">TRACK PARCEL</button>
+    
+    <header>
+        <div class="logo">NYXEN</div>
+        <div class="tagline">Premium Inspired Fragrance</div>
+    </header>
+
     <main id="product-grid" class="product-grid"></main>
 
     <script>
         function updateCartUI() {
             document.getElementById('cart-count').innerText = window.bag.length;
             const list = document.getElementById('cart-items'); list.innerHTML = "";
-            let total = 0; window.bag.forEach(item => {
-                total += item.price; list.innerHTML += `<div style="display:flex; justify-content:space-between;"><span>${item.name}</span><span>₱${item.price}</span></div>`;
+            let total = 0; 
+            window.bag.forEach(item => {
+                total += item.price; 
+                list.innerHTML += `<div style="display:flex; justify-content:space-between; margin-bottom:10px;"><span>${item.name}</span><span style="color:var(--amethyst)">₱${item.price}</span></div>`;
             });
             document.getElementById('cart-total').innerText = "TOTAL: ₱" + total;
         }
