@@ -107,27 +107,19 @@
             const addr = document.getElementById('c-addr').value;
             if(!name || !addr || window.bag.length === 0) return window.notify("Details required.");
             try {
+                const total = window.bag.reduce((s, i) => s + i.price, 0);
                 const docRef = await addDoc(collection(db, "orders"), {
                     customerName: name, address: addr,
-                    items: window.bag, totalAmount: window.bag.reduce((s, i) => s + i.price, 0), 
+                    items: window.bag, totalAmount: total, 
                     status: "Pending", date: Date.now()
                 });
                 const orderID = docRef.id.slice(-5).toUpperCase();
                 let msg = `NYXEN PRIVATE COLLECTION ORDER #${orderID}\n\n`;
                 window.bag.forEach(i => msg += `• ${i.name}\n`);
-                msg += `\nTOTAL: ₱${window.bag.reduce((s, i) => s + i.price, 0)}\nRecipient: ${name}\nShipping: ${addr}`;
+                msg += `\nTOTAL: ₱${total}\nRecipient: ${name}\nShipping: ${addr}`;
                 window.location.href = `https://m.me/296084720263105?text=${encodeURIComponent(msg)}`;
             } catch (e) { window.notify("Order failed."); }
         };
-
-        let secretClicks = 0;
-        document.addEventListener('click', (e) => {
-            if(e.target.classList.contains('tagline')) {
-                secretClicks++;
-                if(secretClicks === 3) window.location.href = 'admin.html';
-                setTimeout(() => secretClicks = 0, 2000);
-            }
-        });
 
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('sw.js?v=1');
@@ -156,10 +148,15 @@
     <style>
         :root { --amethyst: #9b59b2; --bg: #050505; --card: #121212; }
         body { background: var(--bg); color: #fff; font-family: 'Inter', sans-serif; margin: 0; padding: 0; user-select: none; }
-        header { text-align: center; padding: 60px 20px; background: linear-gradient(to bottom, #111, #050505); }
+        header { text-align: center; padding: 40px 20px; background: linear-gradient(to bottom, #111, #050505); }
         .logo { font-size: 3rem; font-weight: 200; letter-spacing: 12px; margin-bottom: 5px; text-shadow: 0 0 20px rgba(155, 89, 182, 0.3); }
         .tagline { color: var(--amethyst); font-size: 0.65rem; letter-spacing: 4px; text-transform: uppercase; cursor: pointer; opacity: 0.8; }
+        
         #local-banner { display: none; background: var(--amethyst); text-align: center; padding: 8px; font-size: 0.65rem; font-weight: bold; position: sticky; top: 0; z-index: 100; box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
+        
+        /* Buy 3 Banner */
+        #promo-banner { background: #fff; color: #000; text-align: center; padding: 6px; font-size: 0.6rem; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; position: sticky; top: 0; z-index: 99; }
+
         .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 25px; max-width: 1200px; margin: 0 auto; padding: 20px; }
         .product-card { background: var(--card); border: 1px solid #222; position: relative; transition: 0.4s ease; overflow: hidden; border-radius: 4px; }
         .product-card:hover { border-color: var(--amethyst); transform: translateY(-5px); box-shadow: 0 10px 30px rgba(155, 89, 182, 0.1); }
@@ -170,10 +167,14 @@
         .info h3 { font-size: 0.9rem; letter-spacing: 2px; text-transform: uppercase; margin: 0 0 8px 0; }
         .add-btn { background: #fff; color: #000; border: none; padding: 14px; width: 100%; font-weight: bold; cursor: pointer; margin-top: 15px; font-size: 0.75rem; letter-spacing: 1px; transition: 0.3s; }
         .cart-btn { position: fixed; bottom: 25px; right: 25px; background: var(--amethyst); padding: 16px 24px; border-radius: 50px; border: none; color: #fff; font-weight: bold; z-index: 1000; cursor: pointer; box-shadow: 0 8px 25px rgba(155, 89, 182, 0.4); }
+        
         .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); display: none; align-items: center; justify-content: center; z-index: 2000; padding: 20px; animation: fadeIn 0.3s ease; }
         .modal { background: #111; padding: 35px 25px; border-radius: 20px; border: 1px solid rgba(155, 89, 182, 0.3); width: 100%; max-width: 380px; text-align: center; position: relative; }
         input, textarea { background: #181818; border: 1px solid #333; color: #fff; width: 100%; padding: 14px; border-radius: 12px; margin-bottom: 15px; box-sizing: border-box; font-family: inherit; outline: none; }
         .checkout-btn { background: var(--amethyst); color: #fff; border: none; padding: 16px; width: 100%; border-radius: 12px; font-weight: bold; cursor: pointer; letter-spacing: 1px; }
+        
+        #shipping-msg { font-size: 0.65rem; color: var(--amethyst); margin-bottom: 15px; font-weight: bold; letter-spacing: 1px; }
+        
         #toast { position: fixed; top: -100px; left: 50%; transform: translateX(-50%); background: rgba(20, 20, 20, 0.95); border: 1px solid var(--amethyst); color: #fff; padding: 12px 25px; border-radius: 50px; font-size: 0.8rem; z-index: 5000; transition: 0.5s cubic-bezier(0.16, 1, 0.3, 1); backdrop-filter: blur(10px); box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
         #toast.show { top: 30px; }
         .app-popup { position: fixed; bottom: 100px; left: 20px; right: 20px; background: rgba(20, 20, 20, 0.95); backdrop-filter: blur(15px); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; padding: 15px; display: none; z-index: 999; animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
@@ -183,6 +184,7 @@
         .app-popup-text p { font-size: 0.65rem; color: #aaa; margin: 0; }
         .install-btn-small { background: #fff; color: #000; border: none; padding: 10px 20px; border-radius: 10px; font-size: 0.75rem; font-weight: bold; cursor: pointer; }
         .close-popup { position: absolute; top: -10px; right: -5px; color: #666; font-size: 1.4rem; cursor: pointer; padding: 5px; }
+        
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes slideUp { from { transform: translateY(50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
         @media (max-width: 600px) { .product-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; } .logo { font-size: 2rem; } }
@@ -190,7 +192,9 @@
 </head>
 <body>
     <div id="toast">Ready</div>
+    <div id="promo-banner">✨ SPECIAL OFFER: COLLECT 3 BOTTLES FOR FREE SHIPPING ✨</div>
     <div id="local-banner">🚚 NEGROS QUICK DELIVERY IS ACTIVE!</div>
+    
     <div id="app-install-popup" class="app-popup">
         <div class="app-popup-content">
             <img src="icon.png" width="50" height="50" style="border-radius:12px;">
@@ -202,6 +206,7 @@
             <span class="close-popup" onclick="closeAppPopup()">&times;</span>
         </div>
     </div>
+
     <div id="tracker-overlay" class="overlay">
         <div class="modal">
             <h3 style="color:var(--amethyst); letter-spacing: 2px;">ORDER TRACKING</h3>
@@ -212,6 +217,7 @@
             <p onclick="document.getElementById('tracker-overlay').style.display='none'" style="cursor:pointer; margin-top:20px; font-size:0.65rem; color:#666; letter-spacing: 1px;">BACK TO SHOP</p>
         </div>
     </div>
+
     <div id="iphone-guide" class="overlay" onclick="this.style.display='none'">
         <div class="modal">
             <div style="background:var(--amethyst); width:50px; height:50px; border-radius:50%; margin:0 auto 20px; display:flex; align-items:center; justify-content:center;"><img src="icon.png" width="30"></div>
@@ -224,19 +230,26 @@
             <button class="checkout-btn">UNDERSTOOD</button>
         </div>
     </div>
+
     <div id="promo-overlay" class="overlay" onclick="this.style.display='none'">
         <div class="modal" style="padding:0; border:none; background:transparent; max-width:320px;">
             <img id="promo-popup-img" src="" style="width:100%; border-radius:20px;">
             <p style="margin-top:15px; font-size:0.6rem; color:rgba(255,255,255,0.5); letter-spacing: 2px;">TAP TO CONTINUE</p>
         </div>
     </div>
+    
     <div id="cart-overlay" class="overlay">
         <div class="modal">
             <h3 style="color:var(--amethyst); letter-spacing: 3px;">MY COLLECTIONS</h3>
-            <div id="cart-items" style="margin:25px 0; text-align:left; font-size:0.8rem; max-height: 150px; overflow-y: auto;"></div>
+            
+            <div id="shipping-msg">Add more items to unlock free shipping.</div>
+
+            <div id="cart-items" style="margin:15px 0; text-align:left; font-size:0.8rem; max-height: 150px; overflow-y: auto;"></div>
             <div id="cart-total" style="font-weight:bold; margin-bottom:25px; font-size: 1.2rem; letter-spacing: 1px;">TOTAL: ₱0</div>
+            
             <input type="text" id="c-name" placeholder="Full Name">
             <textarea id="c-addr" placeholder="Full Shipping Address" rows="3"></textarea>
+            
             <button class="checkout-btn" onclick="submitOrder()">CHECKOUT VIA MESSENGER</button>
             <p onclick="document.getElementById('cart-overlay').style.display='none'" style="cursor:pointer; margin-top:20px; font-size:0.65rem; color:#666; letter-spacing: 1px;">BACK TO SHOP</p>
         </div>
@@ -252,7 +265,21 @@
 
     <script>
         function updateCartUI() {
-            document.getElementById('cart-count').innerText = window.bag.length;
+            const count = window.bag.length;
+            document.getElementById('cart-count').innerText = count;
+            
+            // Shipping Message Logic
+            const sMsg = document.getElementById('shipping-msg');
+            if(count === 0) {
+                sMsg.innerText = "COLLECT 3 FOR FREE SHIPPING";
+            } else if(count === 1) {
+                sMsg.innerText = "ADD 2 MORE FOR FREE SHIPPING 🚚";
+            } else if(count === 2) {
+                sMsg.innerText = "ADD 1 MORE FOR FREE SHIPPING 🚚";
+            } else {
+                sMsg.innerText = "YOU'VE UNLOCKED FREE SHIPPING! 🎉";
+            }
+
             const list = document.getElementById('cart-items'); list.innerHTML = "";
             let total = 0; 
             window.bag.forEach(item => {
