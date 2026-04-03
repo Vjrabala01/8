@@ -12,7 +12,6 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        // Dinagdag ang getDocs dito sa import line
         import { getFirestore, doc, getDoc, onSnapshot, collection, addDoc, updateDoc, increment, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = {
@@ -27,10 +26,9 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        // --- GLOBAL VARIABLES ---
         window.bag = [];
 
-        // --- 1. LOAD SETTINGS (PROMO & POPUP) ---
+        // --- 1. LOAD SETTINGS ---
         onSnapshot(doc(db, "settings", "flash-sale"), (d) => {
             if(d.exists()) {
                 const s = d.data();
@@ -42,7 +40,7 @@
             }
         });
 
-        // --- 2. LOAD SCENTS (REAL-TIME) ---
+        // --- 2. LOAD SCENTS ---
         onSnapshot(collection(db, "inventory"), (snap) => {
             const grid = document.getElementById('product-grid');
             grid.innerHTML = "";
@@ -64,7 +62,7 @@
             });
         });
 
-        // --- 3. SMART TRACK ORDER LOGIC (FIXED) ---
+        // --- 3. SMART TRACK ORDER LOGIC (WITH DELIVERY DETAILS) ---
         window.trackOrder = async () => {
             const inputID = prompt("Enter your 5-digit Order ID (e.g. TLMLX):");
             if(!inputID) return;
@@ -72,7 +70,6 @@
             const cleanInput = inputID.trim().toUpperCase();
             
             try {
-                // Bina-browse ang lahat ng orders para mahanap yung match sa huling 5 letters
                 const querySnapshot = await getDocs(collection(db, "orders"));
                 let found = false;
 
@@ -80,7 +77,24 @@
                     const fullID = doc.id.toUpperCase();
                     if (fullID.endsWith(cleanInput)) {
                         const data = doc.data();
-                        alert(`NYXEN TRACKER 🚚\n\nOrder ID: #${cleanInput}\nStatus: ${data.status.toUpperCase()}\nCustomer: ${data.customerName}\n\n(I-message kami sa Messenger kung may tanong ka!)`);
+                        
+                        // Construct Tracking Info
+                        let trackingInfo = `NYXEN TRACKER 🚚\n\n`;
+                        trackingInfo += `Order ID: #${cleanInput}\n`;
+                        trackingInfo += `Customer: ${data.customerName}\n`;
+                        trackingInfo += `Status: ${data.status.toUpperCase()}\n`;
+                        
+                        if(data.estimatedArrival) {
+                            trackingInfo += `Est. Delivery: ${data.estimatedArrival}\n`;
+                        }
+                        
+                        if(data.tracking) {
+                            trackingInfo += `J&T Tracking: ${data.tracking}\n`;
+                        }
+
+                        trackingInfo += `\n(I-message kami sa Messenger kung may tanong ka, Bro!)`;
+                        
+                        alert(trackingInfo);
                         found = true;
                     }
                 });
@@ -94,14 +108,12 @@
             }
         };
 
-        // --- 4. ADD TO BAG & CLICKS TRACKER ---
+        // --- 4. ADD TO BAG ---
         window.addToBag = async (name, price, img, btn) => {
             window.bag.push({ name, price });
             updateCartUI();
-            
             const scentRef = doc(db, "inventory", name);
             try { await updateDoc(scentRef, { clicks: increment(1) }); } catch(e){}
-
             btn.innerText = "COLLECTED! ✨";
             btn.style.background = "#9b59b2";
             btn.style.color = "#fff";
@@ -112,43 +124,31 @@
             }, 1000);
         };
 
-        // --- 5. CHECKOUT / SUBMIT ORDER ---
+        // --- 5. CHECKOUT ---
         window.submitOrder = async () => {
             const name = document.getElementById('c-name').value;
             const addr = document.getElementById('c-addr').value;
             const phone = document.getElementById('c-phone').value;
-            
             if(!name || !addr || window.bag.length === 0) return alert("Punan ang details, Bro!");
-
             const total = window.bag.reduce((sum, item) => sum + item.price, 0);
-            
             try {
                 const docRef = await addDoc(collection(db, "orders"), {
-                    customerName: name,
-                    address: addr,
-                    phone: phone,
-                    items: window.bag,
-                    totalAmount: total,
-                    status: "Pending",
-                    date: Date.now()
+                    customerName: name, address: addr, phone: phone,
+                    items: window.bag, totalAmount: total, status: "Pending", date: Date.now()
                 });
-
                 const orderID = docRef.id.slice(-5).toUpperCase();
                 let msg = `NYXEN ORDER #${orderID}\n`;
                 msg += `ID: ${docRef.id}\n\n`;
                 window.bag.forEach(i => msg += `• ${i.name} (₱${i.price})\n`);
                 msg += `\nTOTAL: ₱${total}\nName: ${name}\nAddr: ${addr}`;
-
                 const encodedMsg = encodeURIComponent(msg);
                 const messengerLink = `https://m.me/296084720263105?text=${encodedMsg}`;
-
                 alert(`✅ ORDER SAVED (#${orderID})\n\nMapupunta ka na sa Messenger para i-send ang details. Click OK, Bro!`);
                 window.location.href = messengerLink;
-
-            } catch (e) { alert("Error saving order: " + e.message); }
+            } catch (e) { alert("Error: " + e.message); }
         };
 
-        // --- SECRET DOOR LOGIC ---
+        // --- SECRET DOOR ---
         let secretClicks = 0;
         document.addEventListener('click', (e) => {
             if(e.target.classList.contains('tagline')) {
@@ -157,10 +157,6 @@
                 setTimeout(() => secretClicks = 0, 2000);
             }
         });
-
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js').catch(() => {});
-        }
     </script>
 
     <style>
