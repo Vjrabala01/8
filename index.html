@@ -49,7 +49,7 @@
                 const p = doc.data();
                 const isOut = p.qty <= 0;
                 grid.innerHTML += `
-                    <div class="product-card ${p.category} ${isOut ? 'out' : ''}">
+                    <div class="product-card ${isOut ? 'out' : ''}">
                         <div class="price-label">₱${p.price}</div>
                         <div class="portrait-box"><img src="${p.img}" alt="${p.name}"></div>
                         <div class="info">
@@ -82,7 +82,6 @@
             window.bag.push({ name, price });
             updateCartUI();
             
-            // TRACK THE CLICK IN FIREBASE
             const scentRef = doc(db, "inventory", name);
             try { await updateDoc(scentRef, { clicks: increment(1) }); } catch(e){}
 
@@ -96,36 +95,43 @@
             }, 1000);
         };
 
-        // --- 5. CHECKOUT / SUBMIT ORDER ---
+        // --- 5. CHECKOUT / SUBMIT ORDER (FIXED VERSION) ---
         window.submitOrder = async () => {
             const name = document.getElementById('c-name').value;
             const addr = document.getElementById('c-addr').value;
             const phone = document.getElementById('c-phone').value;
             
-            if(!name || !addr || bag.length === 0) return alert("Punan ang details, Bro!");
+            if(!name || !addr || window.bag.length === 0) return alert("Punan ang details, Bro!");
 
-            const total = bag.reduce((sum, item) => sum + item.price, 0);
+            const total = window.bag.reduce((sum, item) => sum + item.price, 0);
             
             try {
                 const docRef = await addDoc(collection(db, "orders"), {
                     customerName: name,
                     address: addr,
                     phone: phone,
-                    items: bag,
+                    items: window.bag,
                     totalAmount: total,
                     status: "Pending",
                     date: Date.now()
                 });
 
-                // Generate Message
-                let msg = `NYXEN ORDER #${docRef.id.slice(-5).toUpperCase()}\n`;
+                const orderID = docRef.id.slice(-5).toUpperCase();
+                let msg = `NYXEN ORDER #${orderID}\n`;
                 msg += `ID: ${docRef.id}\n\n`;
-                bag.forEach(i => msg += `• ${i.name} (₱${i.price})\n`);
+                window.bag.forEach(i => msg += `• ${i.name} (₱${i.price})\n`);
                 msg += `\nTOTAL: ₱${total}\nName: ${name}\nAddr: ${addr}\n\n(PASTE THIS TO MESSENGER)`;
-                
-                await navigator.clipboard.writeText(msg);
-                alert("ORDER SAVED & COPIED! Open Messenger and PASTE it to us.");
-                window.location.href = `https://m.me/296084720263105`; 
+
+                // FIX: Gamit tayo ng Confirmation para payagan ng browser ang Clipboard Copy
+                if(confirm("✅ ORDER SAVED!\n\nI-click ang OK para i-copy ang order details at i-message kami sa Messenger para sa delivery.")) {
+                    try {
+                        await navigator.clipboard.writeText(msg);
+                        alert("COPIED! I-paste mo na lang sa chat natin.");
+                    } catch (err) {
+                        alert("Note: I-screenshot mo na lang ito Bro, hindi kami pinayagan ng browser mo na mag-auto copy: #" + orderID);
+                    }
+                    window.location.href = `https://m.me/296084720263105`; 
+                }
             } catch (e) { alert("Error saving order: " + e.message); }
         };
 
@@ -139,7 +145,6 @@
             }
         });
 
-        // Service Worker for App
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('sw.js').catch(() => {});
         }
@@ -151,33 +156,24 @@
         header { text-align: center; padding: 60px 20px; }
         .logo { font-size: 3rem; font-weight: 200; letter-spacing: 12px; margin-bottom: 5px; }
         .tagline { color: var(--amethyst); font-size: 0.65rem; letter-spacing: 4px; text-transform: uppercase; cursor: pointer; }
-
         #local-banner { display: none; background: var(--amethyst); text-align: center; padding: 8px; font-size: 0.65rem; font-weight: bold; position: sticky; top: 0; z-index: 100; }
-
         .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; max-width: 1200px; margin: 0 auto; padding: 20px; }
         .product-card { background: var(--card); border: 1px solid #222; position: relative; transition: 0.4s; overflow: hidden; }
         .product-card:hover { border-color: var(--amethyst); transform: translateY(-5px); }
         .product-card.out { opacity: 0.4; }
         .product-card.out::after { content: "SOLD OUT"; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-15deg); background: #ff4d4d; color: white; padding: 5px 20px; font-weight: bold; font-size: 1rem; border-radius: 5px; z-index: 10; }
-
         .portrait-box { aspect-ratio: 2/3; overflow: hidden; background: #000; display: flex; align-items: center; justify-content: center; }
         .portrait-box img { width: 100%; height: 100%; object-fit: cover; transition: 0.6s; filter: brightness(0.7); }
         .product-card:hover img { filter: brightness(1); transform: scale(1.05); }
-
         .price-label { position: absolute; top: 15px; right: 0; background: var(--amethyst); padding: 5px 15px; font-weight: bold; z-index: 5; font-size: 0.9rem; }
         .info { padding: 20px; text-align: center; }
         .info h3 { font-size: 0.85rem; letter-spacing: 2px; text-transform: uppercase; margin: 0 0 5px 0; }
-        
         .add-btn { background: #fff; color: #000; border: none; padding: 12px; width: 100%; font-weight: bold; cursor: pointer; margin-top: 15px; font-size: 0.7rem; transition: 0.3s; }
-
         .cart-btn { position: fixed; bottom: 25px; right: 25px; background: var(--amethyst); color: #fff; border: none; padding: 15px 20px; border-radius: 50px; cursor: pointer; font-weight: bold; z-index: 1000; box-shadow: 0 10px 30px rgba(155, 89, 182, 0.5); }
-        
         .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.95); display: none; align-items: center; justify-content: center; z-index: 2000; padding: 20px; backdrop-filter: blur(5px); }
         .modal { background: #111; padding: 25px; border-radius: 15px; border: 1px solid var(--amethyst); width: 100%; max-width: 380px; text-align: center; }
-        
         input, textarea { background: #1a1a1a; border: 1px solid #333; color: #fff; width: 100%; padding: 12px; border-radius: 8px; margin-bottom: 10px; box-sizing: border-box; font-family: inherit; }
         .checkout-btn { background: var(--amethyst); color: #fff; border: none; padding: 15px; width: 100%; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 10px; }
-
         @media (max-width: 600px) { .product-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; padding: 10px; } .logo { font-size: 1.8rem; letter-spacing: 8px; } }
     </style>
 </head>
@@ -197,11 +193,9 @@
             <h3 style="color:var(--amethyst); letter-spacing: 2px;">YOUR BAG</h3>
             <div id="cart-items" style="margin:20px 0; text-align:left; font-size:0.75rem; max-height: 200px; overflow-y: auto;"></div>
             <div id="cart-total" style="font-weight:bold; border-top:1px solid #222; padding-top:10px; margin-bottom:20px; font-size: 1.1rem;">TOTAL: ₱0</div>
-            
             <input type="text" id="c-name" placeholder="Full Name">
             <input type="text" id="c-phone" placeholder="Phone Number">
             <textarea id="c-addr" placeholder="Full Delivery Address" rows="2"></textarea>
-            
             <button class="checkout-btn" onclick="submitOrder()">PROCEED TO MESSENGER</button>
             <p onclick="document.getElementById('cart-overlay').style.display='none'" style="cursor:pointer; margin-top:15px; font-size:0.7rem; color:#888;">Back to Shop</p>
         </div>
