@@ -9,7 +9,7 @@
     <meta name="theme-color" content="#9b59b2">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
-    <link rel="apple-touch-icon" href="Icon.png">
+    <link rel="apple-touch-icon" href="icon.png">
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
@@ -135,11 +135,13 @@
 
         // --- APP LOGIC & FORCED POPUP ---
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js').then(() => console.log("NYXEN App Active"));
+            navigator.serviceWorker.register('sw.js?v=1').then((reg) => {
+                console.log("NYXEN App Active");
+                reg.update();
+            });
         }
 
         window.addEventListener('load', () => {
-            // Force display after 3 seconds for testing
             setTimeout(() => {
                 const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
                 if (!isStandalone) {
@@ -157,7 +159,7 @@
                 document.getElementById('iphone-guide').style.display = 'flex';
                 closeAppPopup();
             } else {
-                alert("Pindutin ang tatlong tuldok (⋮) sa itaas at i-click ang 'Install App' o 'Add to Home Screen'!");
+                alert("Pindutin ang tatlong tuldok (⋮) sa taas at i-click ang 'Install App' o 'Add to Home Screen'!");
             }
         };
     </script>
@@ -184,7 +186,7 @@
         .checkout-btn { background: var(--amethyst); color: #fff; border: none; padding: 15px; width: 100%; border-radius: 8px; font-weight: bold; cursor: pointer; }
 
         /* App Popup Styling */
-        .app-popup { position: fixed; bottom: 90px; left: 20px; right: 20px; background: #1a1a1a; border: 1px solid var(--amethyst); border-radius: 15px; padding: 12px; display: none; z-index: 999; box-shadow: 0 10px 30px rgba(0,0,0,0.8); animation: slideUp 0.5s ease-out; }
+        .app-popup { position: fixed; bottom: 95px; left: 20px; right: 20px; background: #111; border: 1px solid var(--amethyst); border-radius: 15px; padding: 12px; display: none; z-index: 999; box-shadow: 0 10px 30px rgba(0,0,0,0.8); animation: slideUp 0.5s ease-out; }
         .app-popup-content { display: flex; align-items: center; gap: 12px; position: relative; }
         .app-popup-text { flex-grow: 1; text-align: left; }
         .app-popup-text strong { font-size: 0.8rem; color: #fff; display: block; }
@@ -201,7 +203,7 @@
     
     <div id="app-install-popup" class="app-popup">
         <div class="app-popup-content">
-            <img src="https://i.postimg.cc/8C6m8y8y/nyxen-logo-512.png" width="45" height="45" style="border-radius:10px;">
+            <img src="icon.png" width="45" height="45" style="border-radius:10px;">
             <div class="app-popup-text">
                 <strong>Install NYXEN App</strong>
                 <p>Add to home screen for elite experience!</p>
