@@ -29,6 +29,14 @@
 
         window.bag = [];
 
+        // Custom Notification Function (Professional Toast)
+        window.notify = (msg) => {
+            const toast = document.getElementById('toast');
+            toast.innerText = msg;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        };
+
         // --- 1. LOAD SETTINGS ---
         onSnapshot(doc(db, "settings", "flash-sale"), (d) => {
             if(d.exists()) {
@@ -63,31 +71,32 @@
             });
         });
 
-        // --- 3. SMART TRACK ORDER LOGIC ---
+        // --- 3. TRACKER LOGIC (REPLACED PROMPT WITH MODAL) ---
+        window.openTracker = () => document.getElementById('tracker-overlay').style.display = 'flex';
+        
         window.trackOrder = async () => {
-            const inputID = prompt("Enter your 5-digit Order ID (e.g. TLMLX):");
-            if(!inputID) return;
+            const inputID = document.getElementById('track-input').value;
+            if(!inputID) return window.notify("Enter your ID, Bro");
             const cleanInput = inputID.trim().toUpperCase();
             
             try {
                 const querySnapshot = await getDocs(collection(db, "orders"));
                 let found = false;
                 querySnapshot.forEach((doc) => {
-                    const fullID = doc.id.toUpperCase();
-                    if (fullID.endsWith(cleanInput)) {
+                    if (doc.id.toUpperCase().endsWith(cleanInput)) {
                         const data = doc.data();
-                        let trackingInfo = `NYXEN TRACKER 🚚\n\n`;
-                        trackingInfo += `Order ID: #${cleanInput}\n`;
-                        trackingInfo += `Status: ${data.status.toUpperCase()}\n`;
-                        if(data.estimatedArrival) trackingInfo += `Est. Delivery: ${data.estimatedArrival}\n`;
-                        if(data.tracking) trackingInfo += `J&T Tracking: ${data.tracking}\n`;
-                        trackingInfo += `\nCustomer: ${data.customerName}`;
-                        alert(trackingInfo);
+                        document.getElementById('tracker-result').innerHTML = `
+                            <div style="text-align:left; font-size:0.8rem; margin-top:20px; border-top:1px solid #222; padding-top:20px;">
+                                <p><strong>Status:</strong> <span style="color:var(--amethyst)">${data.status.toUpperCase()}</span></p>
+                                <p><strong>Estimated:</strong> ${data.estimatedArrival || 'Updating...'}</p>
+                                <p><strong>J&T No:</strong> ${data.tracking || 'Processing'}</p>
+                            </div>
+                        `;
                         found = true;
                     }
                 });
-                if (!found) alert("Order ID not found, Bro!");
-            } catch (e) { alert("Error sa pag-track."); }
+                if (!found) window.notify("Order ID not found, Bro");
+            } catch (e) { window.notify("Database error"); }
         };
 
         // --- 4. ADD TO BAG ---
@@ -96,31 +105,29 @@
             updateCartUI();
             const scentRef = doc(db, "inventory", name);
             try { await updateDoc(scentRef, { clicks: increment(1) }); } catch(e){}
+            window.notify(`${name} added to collection!`);
             btn.innerText = "COLLECTED! ✨";
-            btn.style.background = "#9b59b2"; btn.style.color = "#fff";
-            setTimeout(() => {
-                btn.innerText = "ADD TO COLLECTION";
-                btn.style.background = "#fff"; btn.style.color = "#000";
-            }, 1000);
+            setTimeout(() => btn.innerText = "ADD TO COLLECTION", 1000);
         };
 
         // --- 5. CHECKOUT ---
         window.submitOrder = async () => {
             const name = document.getElementById('c-name').value;
             const addr = document.getElementById('c-addr').value;
-            if(!name || !addr || window.bag.length === 0) return alert("Punan ang details!");
-            const total = window.bag.reduce((sum, item) => sum + item.price, 0);
+            if(!name || !addr || window.bag.length === 0) return window.notify("Fill in details, Bro!");
+            
             try {
                 const docRef = await addDoc(collection(db, "orders"), {
                     customerName: name, address: addr,
-                    items: window.bag, totalAmount: total, status: "Pending", date: Date.now()
+                    items: window.bag, totalAmount: window.bag.reduce((s, i) => s + i.price, 0), 
+                    status: "Pending", date: Date.now()
                 });
                 const orderID = docRef.id.slice(-5).toUpperCase();
                 let msg = `NYXEN ORDER #${orderID}\n\n`;
-                window.bag.forEach(i => msg += `• ${i.name} (₱${i.price})\n`);
-                msg += `\nTOTAL: ₱${total}\nName: ${name}\nAddr: ${addr}`;
+                window.bag.forEach(i => msg += `• ${i.name}\n`);
+                msg += `\nTOTAL: ₱${window.bag.reduce((s, i) => s + i.price, 0)}\nName: ${name}\nAddr: ${addr}`;
                 window.location.href = `https://m.me/296084720263105?text=${encodeURIComponent(msg)}`;
-            } catch (e) { alert("Error: " + e.message); }
+            } catch (e) { window.notify("Order failed"); }
         };
 
         // --- SECRET DOOR ---
@@ -133,21 +140,15 @@
             }
         });
 
-        // --- APP LOGIC & FORCED POPUP ---
+        // --- APP LOGIC ---
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js?v=1').then((reg) => {
-                console.log("NYXEN App Active");
-                reg.update();
-            });
+            navigator.serviceWorker.register('sw.js?v=1');
         }
 
         window.addEventListener('load', () => {
             setTimeout(() => {
                 const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
-                if (!isStandalone) {
-                    const popup = document.getElementById('app-install-popup');
-                    if(popup) popup.style.display = 'block';
-                }
+                if (!isStandalone) document.getElementById('app-install-popup').style.display = 'block';
             }, 3000);
         });
 
@@ -159,7 +160,7 @@
                 document.getElementById('iphone-guide').style.display = 'flex';
                 closeAppPopup();
             } else {
-                alert("Pindutin ang tatlong tuldok (⋮) sa taas at i-click ang 'Install App' o 'Add to Home Screen'!");
+                window.notify("Tap the menu and select 'Install App'");
             }
         };
     </script>
@@ -168,11 +169,10 @@
         :root { --amethyst: #9b59b2; --bg: #050505; --card: #121212; }
         body { background: var(--bg); color: #fff; font-family: 'Inter', sans-serif; margin: 0; padding: 0; user-select: none; }
         
-        /* Header Upgrade */
+        /* Header & Local Banner */
         header { text-align: center; padding: 60px 20px; background: linear-gradient(to bottom, #111, #050505); }
         .logo { font-size: 3rem; font-weight: 200; letter-spacing: 12px; margin-bottom: 5px; text-shadow: 0 0 20px rgba(155, 89, 182, 0.3); }
         .tagline { color: var(--amethyst); font-size: 0.65rem; letter-spacing: 4px; text-transform: uppercase; cursor: pointer; opacity: 0.8; }
-        
         #local-banner { display: none; background: var(--amethyst); text-align: center; padding: 8px; font-size: 0.65rem; font-weight: bold; position: sticky; top: 0; z-index: 100; box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
         
         /* Grid and Cards */
@@ -180,106 +180,99 @@
         .product-card { background: var(--card); border: 1px solid #222; position: relative; transition: 0.4s ease; overflow: hidden; border-radius: 4px; }
         .product-card:hover { border-color: var(--amethyst); transform: translateY(-5px); box-shadow: 0 10px 30px rgba(155, 89, 182, 0.1); }
         .product-card.out { opacity: 0.4; }
-        
         .portrait-box { aspect-ratio: 2/3; overflow: hidden; background: #000; }
         .portrait-box img { width: 100%; height: 100%; object-fit: cover; filter: brightness(0.8); transition: 0.5s; }
-        .product-card:hover img { filter: brightness(1); }
-        
         .price-label { position: absolute; top: 15px; right: 0; background: var(--amethyst); padding: 6px 18px; font-weight: bold; z-index: 5; font-size: 0.9rem; clip-path: polygon(15% 0, 100% 0, 100% 100%, 0% 100%); }
         .info { padding: 25px; text-align: center; }
         .info h3 { font-size: 0.9rem; letter-spacing: 2px; text-transform: uppercase; margin: 0 0 8px 0; }
         
-        /* Buttons Upgrade */
+        /* Buttons */
         .add-btn { background: #fff; color: #000; border: none; padding: 14px; width: 100%; font-weight: bold; cursor: pointer; margin-top: 15px; font-size: 0.75rem; letter-spacing: 1px; transition: 0.3s; }
-        .add-btn:hover:not(:disabled) { background: var(--amethyst); color: #fff; }
+        .cart-btn { position: fixed; bottom: 25px; right: 25px; background: var(--amethyst); padding: 16px 24px; border-radius: 50px; border: none; color: #fff; font-weight: bold; z-index: 1000; cursor: pointer; box-shadow: 0 8px 25px rgba(155, 89, 182, 0.4); }
         
-        .cart-btn { position: fixed; bottom: 25px; right: 25px; background: var(--amethyst); padding: 16px 24px; border-radius: 50px; border: none; color: #fff; font-weight: bold; z-index: 1000; cursor: pointer; box-shadow: 0 8px 25px rgba(155, 89, 182, 0.4); transition: 0.3s; }
-        .cart-btn:active { transform: scale(0.95); }
-
-        /* Popups / Modals Upgrade (The Professional Look) */
+        /* Overlays & Modals (Glassmorphism) */
         .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); display: none; align-items: center; justify-content: center; z-index: 2000; padding: 20px; animation: fadeIn 0.3s ease; }
-        .modal { background: #111; padding: 35px 25px; border-radius: 20px; border: 1px solid rgba(155, 89, 182, 0.3); width: 100%; max-width: 380px; text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,0.5); position: relative; }
-        
-        input, textarea { background: #181818; border: 1px solid #333; color: #fff; width: 100%; padding: 14px; border-radius: 12px; margin-bottom: 15px; box-sizing: border-box; font-family: inherit; transition: 0.3s; }
-        input:focus, textarea:focus { border-color: var(--amethyst); outline: none; background: #202020; }
-        
-        .checkout-btn { background: var(--amethyst); color: #fff; border: none; padding: 16px; width: 100%; border-radius: 12px; font-weight: bold; cursor: pointer; font-size: 0.9rem; letter-spacing: 1px; box-shadow: 0 5px 15px rgba(155, 89, 182, 0.2); }
+        .modal { background: #111; padding: 35px 25px; border-radius: 20px; border: 1px solid rgba(155, 89, 182, 0.3); width: 100%; max-width: 380px; text-align: center; position: relative; }
+        input, textarea { background: #181818; border: 1px solid #333; color: #fff; width: 100%; padding: 14px; border-radius: 12px; margin-bottom: 15px; box-sizing: border-box; font-family: inherit; outline: none; }
+        input:focus { border-color: var(--amethyst); }
+        .checkout-btn { background: var(--amethyst); color: #fff; border: none; padding: 16px; width: 100%; border-radius: 12px; font-weight: bold; cursor: pointer; letter-spacing: 1px; }
 
-        /* App Popup Styling (Professional Card) */
-        .app-popup { position: fixed; bottom: 100px; left: 20px; right: 20px; background: rgba(20, 20, 20, 0.95); backdrop-filter: blur(15px); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; padding: 15px; display: none; z-index: 999; box-shadow: 0 15px 40px rgba(0,0,0,0.6); animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
+        /* Professional Toast Notification */
+        #toast { position: fixed; top: -100px; left: 50%; transform: translateX(-50%); background: rgba(20, 20, 20, 0.9); border: 1px solid var(--amethyst); color: #fff; padding: 12px 25px; border-radius: 50px; font-size: 0.8rem; z-index: 5000; transition: 0.5s cubic-bezier(0.16, 1, 0.3, 1); backdrop-filter: blur(10px); box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        #toast.show { top: 30px; }
+
+        /* App Popup Styling */
+        .app-popup { position: fixed; bottom: 100px; left: 20px; right: 20px; background: rgba(20, 20, 20, 0.95); backdrop-filter: blur(15px); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; padding: 15px; display: none; z-index: 999; animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
         .app-popup-content { display: flex; align-items: center; gap: 15px; position: relative; }
         .app-popup-text { flex-grow: 1; text-align: left; }
-        .app-popup-text strong { font-size: 0.85rem; color: #fff; display: block; margin-bottom: 2px; }
+        .app-popup-text strong { font-size: 0.85rem; color: #fff; display: block; }
         .app-popup-text p { font-size: 0.65rem; color: #aaa; margin: 0; }
         .install-btn-small { background: #fff; color: #000; border: none; padding: 10px 20px; border-radius: 10px; font-size: 0.75rem; font-weight: bold; cursor: pointer; }
         .close-popup { position: absolute; top: -10px; right: -5px; color: #666; font-size: 1.4rem; cursor: pointer; padding: 5px; }
 
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes slideUp { from { transform: translateY(50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-
-        @media (max-width: 600px) { 
-            .product-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; padding: 12px; } 
-            .logo { font-size: 2rem; letter-spacing: 8px; }
-            .modal { padding: 30px 20px; width: 90%; }
-        }
+        @media (max-width: 600px) { .product-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; } .logo { font-size: 2rem; } }
     </style>
 </head>
 <body>
+
+    <div id="toast">Message here, Bro!</div>
+
     <div id="local-banner">🚚 NEGROS QUICK DELIVERY IS ACTIVE!</div>
     
     <div id="app-install-popup" class="app-popup">
         <div class="app-popup-content">
-            <img src="icon.png" width="50" height="50" style="border-radius:12px; box-shadow: 0 5px 15px rgba(0,0,0,0.3);">
+            <img src="icon.png" width="50" height="50" style="border-radius:12px;">
             <div class="app-popup-text">
                 <strong>NYXEN Mobile</strong>
-                <p>Add to home screen for an elite shop experience.</p>
+                <p>Add to home screen for an elite experience.</p>
             </div>
             <button onclick="showInstallGuide()" class="install-btn-small">ADD</button>
             <span class="close-popup" onclick="closeAppPopup()">&times;</span>
         </div>
     </div>
 
+    <div id="tracker-overlay" class="overlay">
+        <div class="modal">
+            <h3 style="color:var(--amethyst); letter-spacing: 2px;">TRACK PARCEL</h3>
+            <input type="text" id="track-input" placeholder="Order ID (last 5 digits)">
+            <button class="checkout-btn" onclick="trackOrder()">SEARCH COLLECTION</button>
+            <div id="tracker-result"></div>
+            <p onclick="document.getElementById('tracker-overlay').style.display='none'" style="cursor:pointer; margin-top:20px; font-size:0.65rem; color:#666;">CLOSE TRACKER</p>
+        </div>
+    </div>
+
     <div id="iphone-guide" class="overlay" onclick="this.style.display='none'">
         <div class="modal">
-            <div style="background:var(--amethyst); width:50px; height:50px; border-radius:50%; margin:0 auto 20px; display:flex; align-items:center; justify-content:center;">
-                <img src="icon.png" width="30">
-            </div>
-            <h3 style="letter-spacing:2px; font-size:1.1rem;">INSTALL NYXEN</h3>
-            <p style="font-size:0.8rem; color:#aaa; line-height:1.7; text-align: left; margin: 20px 0;">
-                1. Tap the <strong>Share</strong> icon (square with arrow up) <br>
-                2. Scroll and tap <strong>'Add to Home Screen'</strong> <br>
-                3. Tap <strong>'Add'</strong> on the top right corner.
-            </p>
+            <div style="background:var(--amethyst); width:50px; height:50px; border-radius:50%; margin:0 auto 20px; display:flex; align-items:center; justify-content:center;"><img src="icon.png" width="30"></div>
+            <h3 style="letter-spacing:2px;">INSTALL NYXEN</h3>
+            <p style="font-size:0.8rem; color:#aaa; line-height:1.7; text-align: left;">1. Tap <strong>Share</strong> icon (square with arrow up)<br>2. Tap <strong>'Add to Home Screen'</strong><br>3. Tap <strong>'Add'</strong>.</p>
             <button class="checkout-btn">GOT IT, BRO!</button>
         </div>
     </div>
 
     <div id="promo-overlay" class="overlay" onclick="this.style.display='none'">
         <div class="modal" style="padding:0; border:none; background:transparent; max-width:320px;">
-            <img id="promo-popup-img" src="" style="width:100%; border-radius:20px; box-shadow: 0 20px 40px rgba(0,0,0,0.8);">
-            <p style="margin-top:15px; font-size:0.6rem; letter-spacing:2px; color:rgba(255,255,255,0.5);">TAP ANYWHERE TO DISMISS</p>
+            <img id="promo-popup-img" src="" style="width:100%; border-radius:20px;">
+            <p style="margin-top:15px; font-size:0.6rem; color:rgba(255,255,255,0.5);">TAP TO DISMISS</p>
         </div>
     </div>
     
     <div id="cart-overlay" class="overlay">
         <div class="modal">
-            <h3 style="color:var(--amethyst); letter-spacing: 3px; font-size: 1rem;">MY COLLECTION</h3>
-            <div id="cart-items" style="margin:25px 0; text-align:left; font-size:0.8rem; max-height: 150px; overflow-y: auto; border-bottom: 1px solid #222; padding-bottom: 10px;"></div>
-            <div id="cart-total" style="font-weight:bold; padding-top:10px; margin-bottom:25px; font-size: 1.2rem; letter-spacing: 1px;">TOTAL: ₱0</div>
-            
+            <h3 style="color:var(--amethyst); letter-spacing: 3px;">MY COLLECTION</h3>
+            <div id="cart-items" style="margin:25px 0; text-align:left; font-size:0.8rem; max-height: 150px; overflow-y: auto;"></div>
+            <div id="cart-total" style="font-weight:bold; margin-bottom:25px; font-size: 1.2rem;">TOTAL: ₱0</div>
             <input type="text" id="c-name" placeholder="Full Name">
-            <textarea id="c-addr" placeholder="Detailed Delivery Address" rows="3"></textarea>
-            
+            <textarea id="c-addr" placeholder="Address" rows="3"></textarea>
             <button class="checkout-btn" onclick="submitOrder()">PROCEED TO MESSENGER</button>
-            <p onclick="document.getElementById('cart-overlay').style.display='none'" style="cursor:pointer; margin-top:20px; font-size:0.65rem; color:#666; letter-spacing: 1px;">CONTINUE BROWSING</p>
+            <p onclick="document.getElementById('cart-overlay').style.display='none'" style="cursor:pointer; margin-top:20px; font-size:0.65rem; color:#666;">CONTINUE BROWSING</p>
         </div>
     </div>
 
-    <button class="cart-btn" onclick="document.getElementById('cart-overlay').style.display='flex'">
-        BAG (<span id="cart-count">0</span>)
-    </button>
-    
-    <button onclick="trackOrder()" style="position:fixed; bottom:25px; left:25px; background:rgba(255,255,255,0.03); border:1px solid #222; color:#555; border-radius:50px; padding:10px 18px; font-size:0.65rem; cursor:pointer; z-index:1000; letter-spacing: 1px; backdrop-filter: blur(5px);">TRACK PARCEL</button>
+    <button class="cart-btn" onclick="document.getElementById('cart-overlay').style.display='flex'">BAG (<span id="cart-count">0</span>)</button>
+    <button onclick="openTracker()" style="position:fixed; bottom:25px; left:25px; background:rgba(255,255,255,0.03); border:1px solid #222; color:#555; border-radius:50px; padding:10px 18px; font-size:0.65rem; z-index:1000; backdrop-filter: blur(5px);">TRACK PARCEL</button>
     
     <header>
         <div class="logo">NYXEN</div>
