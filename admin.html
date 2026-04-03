@@ -4,10 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NYXEN | Master Empire Admin</title>
+    
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, doc, setDoc, onSnapshot, collection, deleteDoc, updateDoc, increment, query, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot, collection, deleteDoc, updateDoc, increment } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyCXLACoKi11HXdQ47uEL-HnIw_R-T-44vo",
@@ -22,245 +23,215 @@
         const db = getFirestore(app);
         const auth = getAuth(app);
 
-        // --- AUTH & SECURITY ---
+        // --- AUTH CHECK ---
         onAuthStateChanged(auth, (user) => {
             document.getElementById('login-overlay').style.display = user ? 'none' : 'flex';
+            if(user) loadDashboard();
         });
 
         window.handleLogin = async () => {
             const email = document.getElementById('admin-email').value;
             const pass = document.getElementById('admin-pass').value;
             try { await signInWithEmailAndPassword(auth, email, pass); } 
-            catch (e) { alert("Access Denied, Bro!"); }
+            catch (e) { alert("Mali ang credentials, Bro!"); }
         };
 
-        // --- 1. INVENTORY CONTROL ---
+        window.handleLogout = () => signOut(auth);
+
+        // --- SYNCED INVENTORY LOGIC ---
         window.saveProduct = async () => {
-            const name = document.getElementById('p-name').value;
+            const name = document.getElementById('p-name').value.trim();
             const price = document.getElementById('p-price').value;
             const qty = document.getElementById('p-qty').value;
             const img = document.getElementById('p-img').value;
-            const cat = document.getElementById('p-cat').value;
+            const gender = document.getElementById('p-gender').value; // Ito ang mag-si-sync sa index filter
 
-            if(!name || !price || !qty || !img) return alert("Punan lahat, Bro!");
+            if(!name || !price || !qty || !img) return alert("Punan lahat ng fields!");
 
             try {
+                // Gagamit ng 'gender' field para tugma sa index.html
                 await setDoc(doc(db, "inventory", name), {
-                    name, price: Number(price), qty: Number(qty), img, category: cat,
-                    stock: Number(qty) > 0 ? "in" : "out", clicks: 0
+                    name,
+                    price: Number(price),
+                    qty: Number(qty),
+                    img: img,
+                    gender: gender, // 'male' or 'female'
+                    clicks: 0,
+                    dateAdded: Date.now()
                 });
-                alert("✅ SUCCESS: Scent added and stocks updated!");
+                alert("✅ Scent Added & Synced to Website!");
                 document.getElementById('p-form').reset();
             } catch (e) { alert("Error: " + e.message); }
         };
 
         window.adjustStock = async (name, val) => {
-            const docRef = doc(db, "inventory", name);
-            try {
-                await updateDoc(docRef, { qty: increment(val) });
-            } catch (e) { console.error(e); }
+            try { await updateDoc(doc(db, "inventory", name), { qty: increment(val) }); } 
+            catch (e) { console.error(e); }
         };
 
-        // --- 2. PROMO & POP-UP BANNER ---
-        window.savePromo = async () => {
-            const img = document.getElementById('promo-img').value;
-            const end = document.getElementById('promo-end').value;
-            const disc = document.getElementById('promo-perc').value;
-            const local = document.getElementById('promo-local').checked;
-            if(!img) return alert("Maglagay ka ng Image Link!");
-            try {
-                await setDoc(doc(db, "settings", "flash-sale"), { 
-                    promoImg: img, endTime: end, discount: disc, active: true, localQuick: local 
-                });
-                alert("🚀 LIVE: Promo Pop-up is now active on your site!");
-                document.getElementById('promo-img').value = "";
-                document.getElementById('promo-end').value = "";
-                document.getElementById('promo-perc').value = "";
-            } catch (e) { alert("Error: " + e.message); }
-        };
-
-        // --- 3. SHIPPING & ORDER MANAGER (UPDATED WITH J&T TRACKING) ---
+        // --- ORDERS & TRACKING ---
         window.updateOrderStatus = async (id, status) => {
-            let trackingNum = "";
-            let estArrival = "";
-
+            let updateData = { status: status };
             if (status === "Shipped") {
-                trackingNum = prompt("Enter J&T Tracking Number:");
-                estArrival = prompt("Enter Estimated Delivery Date (e.g. April 10-12):");
-            } else if (status === "Packing") {
-                estArrival = prompt("Estimated ship out date? (Optional):");
+                const track = prompt("J&T Tracking Number:");
+                const eta = prompt("Estimated Arrival (e.g., April 5-7):");
+                if(track) updateData.tracking = track;
+                if(eta) updateData.estimatedArrival = eta;
             }
-
-            try {
-                const updateData = { status: status };
-                if (trackingNum) updateData.tracking = trackingNum;
-                if (estArrival) updateData.estimatedArrival = estArrival;
-
-                await updateDoc(doc(db, "orders", id), updateData);
-                alert(`Order #${id.slice(-5).toUpperCase()} updated to ${status}`);
-            } catch (e) { alert("Error: " + e.message); }
+            await updateDoc(doc(db, "orders", id), updateData);
+            alert("Order Status Updated!");
         };
 
-        // --- REAL-TIME LISTENERS ---
-        onSnapshot(collection(db, "inventory"), (snap) => {
-            const list = document.getElementById('product-list');
-            list.innerHTML = "";
-            let totalClicks = 0;
-            snap.forEach(d => {
-                const p = d.data();
-                totalClicks += (p.clicks || 0);
-                const isLow = p.qty <= 5 && p.qty > 0;
-                list.innerHTML += `
-                    <tr class="${p.qty === 0 ? 'out-of-stock' : (isLow ? 'low-stock-row' : '')}">
-                        <td><img src="${p.img}" width="35" height="35" style="border-radius:4px; object-fit:cover;"></td>
-                        <td>${p.name} ${isLow ? '⚠️' : ''}</td>
-                        <td>
-                            <button onclick="adjustStock('${p.name}', -1)" class="qty-btn">-</button>
-                            <span style="margin: 0 10px; font-weight:bold;">${p.qty}</span>
-                            <button onclick="adjustStock('${p.name}', 1)" class="qty-btn">+</button>
-                        </td>
-                        <td><span style="color:#9b59b2; font-weight:bold;">${p.clicks || 0}</span></td>
-                        <td><button onclick="if(confirm('Sure ka, Bro?')) deleteDoc(doc(db, 'inventory', '${p.name}'))" style="background:none; border:none; color:red; cursor:pointer;"><i class="fa-solid fa-trash"></i></button></td>
-                    </tr>`;
+        // --- REAL-TIME DATA ---
+        function loadDashboard() {
+            // Inventory Sync
+            onSnapshot(collection(db, "inventory"), (snap) => {
+                const list = document.getElementById('product-list');
+                list.innerHTML = "";
+                snap.forEach(d => {
+                    const p = d.data();
+                    const low = p.qty <= 5 ? 'style="color:red; font-weight:bold;"' : '';
+                    list.innerHTML += `
+                        <tr>
+                            <td><img src="${p.img}" width="40" style="border-radius:5px;"></td>
+                            <td>${p.name}<br><small style="color:var(--amethyst)">${p.gender.toUpperCase()}</small></td>
+                            <td ${low}>
+                                <button class="qty-btn" onclick="adjustStock('${p.name}', -1)">-</button>
+                                ${p.qty}
+                                <button class="qty-btn" onclick="adjustStock('${p.name}', 1)">+</button>
+                            </td>
+                            <td>${p.clicks || 0}</td>
+                            <td><button onclick="deleteDoc(doc(db, 'inventory', '${p.name}'))" style="color:red; border:none; background:none; cursor:pointer;"><i class="fa-solid fa-trash"></i></button></td>
+                        </tr>`;
+                });
             });
-            document.getElementById('stat-clicks').innerText = totalClicks;
-        });
 
-        onSnapshot(collection(db, "orders"), (snap) => {
-            const oList = document.getElementById('order-list');
-            oList.innerHTML = "";
-            let totalRev = 0;
-            snap.forEach(d => {
-                const o = d.data();
-                if(o.status === "Delivered") totalRev += Number(o.totalAmount);
-                oList.innerHTML += `
-                    <tr>
-                        <td>#${d.id.slice(-5).toUpperCase()}</td>
-                        <td>${o.customerName}<br><small>${o.address}</small></td>
-                        <td>₱${o.totalAmount}</td>
-                        <td><span class="pill pill-${o.status.toLowerCase()}">${o.status}</span></td>
-                        <td>
-                            <select onchange="updateOrderStatus('${d.id}', this.value)" style="font-size:0.7rem; padding:2px; background:#222; color:white; border:1px solid #444;">
-                                <option value="Pending" ${o.status==='Pending'?'selected':''}>Pending</option>
-                                <option value="Packing" ${o.status==='Packing'?'selected':''}>Packing</option>
-                                <option value="Shipped" ${o.status==='Shipped'?'selected':''}>Shipped</option>
-                                <option value="Delivered" ${o.status==='Delivered'?'selected':''}>Delivered</option>
-                            </select>
-                        </td>
-                    </tr>`;
+            // Orders Sync
+            onSnapshot(collection(db, "orders"), (snap) => {
+                const oList = document.getElementById('order-list');
+                oList.innerHTML = "";
+                let rev = 0;
+                snap.forEach(d => {
+                    const o = d.data();
+                    if(o.status === "Delivered") rev += Number(o.totalAmount);
+                    oList.innerHTML += `
+                        <tr>
+                            <td>#${d.id.slice(-5).toUpperCase()}</td>
+                            <td>${o.customerName}</td>
+                            <td>₱${o.totalAmount}</td>
+                            <td><span class="status-pill ${o.status.toLowerCase()}">${o.status}</span></td>
+                            <td>
+                                <select onchange="updateOrderStatus('${d.id}', this.value)">
+                                    <option value="Pending" ${o.status==='Pending'?'selected':''}>Pending</option>
+                                    <option value="Packing" ${o.status==='Packing'?'selected':''}>Packing</option>
+                                    <option value="Shipped" ${o.status==='Shipped'?'selected':''}>Shipped</option>
+                                    <option value="Delivered" ${o.status==='Delivered'?'selected':''}>Delivered</option>
+                                </select>
+                            </td>
+                        </tr>`;
+                });
+                document.getElementById('total-rev').innerText = "₱" + rev.toLocaleString();
             });
-            document.getElementById('stat-revenue').innerText = "₱" + totalRev.toLocaleString();
-        });
+        }
 
         window.showTab = (tab) => {
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-            document.getElementById(tab).classList.add('active');
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('tab-active'));
-            if(event) event.target.classList.add('tab-active');
+            document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+            document.getElementById(tab).style.display = 'block';
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
         };
     </script>
 
     <style>
         :root { --amethyst: #9b59b2; --bg: #050505; --card: #111; }
-        body { background: var(--bg); color: white; font-family: 'Inter', sans-serif; padding: 20px; margin: 0; }
-        .card { background: var(--card); padding: 15px; border-radius: 12px; border-left: 4px solid var(--amethyst); margin-bottom: 15px; border-top: 1px solid #222; }
-        .tab-nav { display: flex; gap: 8px; margin-bottom: 20px; overflow-x: auto; padding-bottom: 5px; }
-        .tab-btn { background: #222; border: none; color: white; padding: 10px 18px; border-radius: 8px; cursor: pointer; white-space: nowrap; font-weight: bold; transition: 0.3s; }
-        .tab-active { background: var(--amethyst) !important; box-shadow: 0 0 15px rgba(155, 89, 182, 0.4); }
-        .tab-content { display: none; }
-        .active { display: block; }
-        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 20px; }
-        .stat-box { background: var(--card); padding: 15px; border-radius: 10px; text-align: center; border: 1px solid #222; }
-        .stat-box h2 { color: var(--amethyst); margin: 5px 0 0; }
-        input, select { background: #1a1a1a; border: 1px solid #333; color: white; padding: 12px; margin-bottom: 10px; width: 100%; border-radius: 8px; box-sizing: border-box; }
-        .btn-main { background: var(--amethyst); color: white; border: none; padding: 15px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; }
-        table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
-        th, td { text-align: left; padding: 12px 10px; border-bottom: 1px solid #222; }
-        .qty-btn { background: #333; border: none; color: white; padding: 2px 8px; border-radius: 4px; cursor: pointer; font-weight: bold; }
-        .qty-btn:hover { background: var(--amethyst); }
-        .pill { padding: 3px 8px; border-radius: 20px; font-size: 0.6rem; font-weight: bold; text-transform: uppercase; }
-        .pill-pending { background: #f39c12; } .pill-shipped { background: #9b59b2; } .pill-delivered { background: #27ae60; }
-        .low-stock-row { background: rgba(255, 165, 0, 0.1); } .out-of-stock { opacity: 0.4; filter: grayscale(1); }
-        #login-overlay { position: fixed; inset: 0; background: black; display: flex; align-items: center; justify-content: center; z-index: 1000; }
+        body { background: var(--bg); color: white; font-family: 'Inter', sans-serif; margin: 0; padding: 20px; }
+        .tab-nav { display: flex; gap: 10px; margin-bottom: 20px; }
+        .tab-btn { background: #222; border: none; color: white; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        .tab-btn.active { background: var(--amethyst); }
+        .card { background: var(--card); padding: 20px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #222; }
+        input, select { background: #1a1a1a; border: 1px solid #333; color: white; padding: 12px; margin-bottom: 10px; width: 100%; border-radius: 8px; }
+        .btn-main { background: var(--amethyst); color: white; border: none; padding: 15px; border-radius: 8px; width: 100%; font-weight: bold; cursor: pointer; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #222; }
+        .qty-btn { background: #333; border: none; color: white; width: 25px; height: 25px; border-radius: 4px; cursor: pointer; }
+        .status-pill { padding: 4px 10px; border-radius: 20px; font-size: 0.7rem; font-weight: bold; }
+        .status-pill.pending { background: #e67e22; }
+        .status-pill.shipped { background: #9b59b2; }
+        .status-pill.delivered { background: #2ecc71; }
+        #login-overlay { position: fixed; inset: 0; background: black; z-index: 9999; display: flex; align-items: center; justify-content: center; }
     </style>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
 
     <div id="login-overlay">
-        <div style="background:var(--card); padding:40px; border-radius:15px; border:1px solid var(--amethyst); text-align:center; width:300px;">
-            <h2 style="color:var(--amethyst); letter-spacing:4px;">NYXEN ADMIN</h2>
-            <input type="email" id="admin-email" placeholder="Email">
+        <div class="card" style="width: 320px; text-align: center;">
+            <h2 style="color:var(--amethyst)">NYXEN ADMIN</h2>
+            <input type="email" id="admin-email" placeholder="Admin Email">
             <input type="password" id="admin-pass" placeholder="Password">
-            <button class="btn-main" onclick="handleLogin()">ACCESS EMPIRE</button>
+            <button class="btn-main" onclick="handleLogin()">ACCESS DASHBOARD</button>
         </div>
     </div>
 
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-        <h2 style="letter-spacing:3px;">NYXEN <span style="color:var(--amethyst)">SUPER ADMIN</span></h2>
-        <button onclick="location.reload()" style="background:none; border:1px solid #333; color:#888; padding:5px 10px; border-radius:6px; cursor:pointer;">Refresh Dashboard</button>
+    <div style="display:flex; justify-content: space-between; align-items: center;">
+        <h2>NYXEN <span style="color:var(--amethyst)">MASTER EMPIRE</span></h2>
+        <button onclick="handleLogout()" style="background:none; border:1px solid #444; color:#888; padding:5px 10px; border-radius:5px; cursor:pointer;">Logout</button>
     </div>
 
-    <div class="stats-grid">
-        <div class="stat-box"><small>Total Revenue (Delivered)</small><h2 id="stat-revenue">₱0</h2></div>
-        <div class="stat-box"><small>Engagement</small><h2><span id="stat-clicks">0</span> Clicks</h2></div>
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 15px; margin: 20px 0;">
+        <div class="card" style="text-align: center;">
+            <small>Total Revenue</small>
+            <h2 id="total-rev" style="color:var(--amethyst); margin: 5px 0;">₱0</h2>
+        </div>
+        <div class="card" style="text-align: center;">
+            <small>Customer Engagement</small>
+            <h2 id="stat-clicks" style="margin: 5px 0;">0 Clicks</h2>
+        </div>
     </div>
 
     <div class="tab-nav">
-        <button class="tab-btn tab-active" onclick="showTab('inventory-tab')">📦 Inventory</button>
-        <button class="tab-btn" onclick="showTab('orders-tab')">🚚 Orders & Shipping</button>
-        <button class="tab-btn" onclick="showTab('promo-tab')">🏷️ Promos & Sales</button>
+        <button class="tab-btn active" onclick="showTab('inventory-tab')">INVENTORY</button>
+        <button class="tab-btn" onclick="showTab('orders-tab')">ORDERS</button>
     </div>
 
-    <div id="inventory-tab" class="tab-content active">
+    <div id="inventory-tab" class="tab-content">
         <div class="card">
-            <h3>Add New Product</h3>
-            <form id="p-form" onsubmit="event.preventDefault();">
-                <div style="display:grid; grid-template-columns: 2fr 1fr 1fr; gap:10px;">
-                    <input type="text" id="p-name" placeholder="Scent Name">
-                    <input type="number" id="p-price" placeholder="Price">
-                    <input type="number" id="p-qty" placeholder="Qty">
+            <h3>Add New Scent</h3>
+            <form id="p-form" onsubmit="event.preventDefault()">
+                <input type="text" id="p-name" placeholder="Scent Name (e.g. Dior Sauvage)">
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <input type="number" id="p-price" placeholder="Price (₱)">
+                    <input type="number" id="p-qty" placeholder="Stocks (Qty)">
                 </div>
-                <input type="text" id="p-img" placeholder="PostImages Direct Link">
-                <select id="p-cat"><option value="male">For Men</option><option value="female">For Women</option></select>
-                <button class="btn-main" onclick="saveProduct()">SAVE TO EMPIRE</button>
+                <input type="text" id="p-img" placeholder="PostImages Direct Link URL">
+                <select id="p-gender">
+                    <option value="male">For Men (Male)</option>
+                    <option value="female">For Women (Female)</option>
+                </select>
+                <button class="btn-main" onclick="saveProduct()">SYNC TO WEBSITE</button>
             </form>
         </div>
-        <div class="card" style="border-left-color:#555;">
+
+        <div class="card">
+            <h3>Current Stock List</h3>
             <table>
-                <thead><tr><th>Img</th><th>Scent</th><th>Stocks</th><th>Clicks</th><th>Action</th></tr></thead>
+                <thead>
+                    <tr><th>Img</th><th>Scent</th><th>Stocks</th><th>Clicks</th><th>Action</th></tr>
+                </thead>
                 <tbody id="product-list"></tbody>
             </table>
         </div>
     </div>
 
-    <div id="orders-tab" class="tab-content">
+    <div id="orders-tab" class="tab-content" style="display: none;">
         <div class="card">
-            <h3>Recent Orders & Tracker</h3>
+            <h3>Recent Transactions</h3>
             <table>
-                <thead><tr><th>Order ID</th><th>Customer</th><th>Total</th><th>Status</th><th>Update</th></tr></thead>
+                <thead>
+                    <tr><th>Order ID</th><th>Customer</th><th>Total</th><th>Status</th><th>Action</th></tr>
+                </thead>
                 <tbody id="order-list"></tbody>
             </table>
-        </div>
-    </div>
-
-    <div id="promo-tab" class="tab-content">
-        <div class="card">
-            <h3>Marketing Center</h3>
-            <label><small>Pop-up Banner Image Link:</small></label>
-            <input type="text" id="promo-img" placeholder="https://i.postimg.cc/banner.jpg">
-            
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-                <div><small>Sale End Date:</small><input type="datetime-local" id="promo-end"></div>
-                <div><small>Discount %:</small><input type="number" id="promo-perc" placeholder="e.g. 20"></div>
-            </div>
-
-            <div style="margin:10px 0;">
-                <input type="checkbox" id="promo-local" style="width:auto; margin-right:10px;">
-                <label>Enable "Bacolod/Negros Quick Delivery" Banner</label>
-            </div>
-            
-            <button class="btn-main" onclick="savePromo()">ACTIVATE CAMPAIGN</button>
         </div>
     </div>
 
