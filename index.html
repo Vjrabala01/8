@@ -133,16 +133,18 @@
             }
         });
 
-        // --- APP LOGIC & POPUP ---
+        // --- APP LOGIC & FORCED POPUP ---
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('sw.js').then(() => console.log("NYXEN App Active"));
         }
 
         window.addEventListener('load', () => {
+            // Force display after 3 seconds for testing
             setTimeout(() => {
                 const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
                 if (!isStandalone) {
-                    document.getElementById('app-install-popup').style.display = 'block';
+                    const popup = document.getElementById('app-install-popup');
+                    if(popup) popup.style.display = 'block';
                 }
             }, 3000);
         });
@@ -155,7 +157,7 @@
                 document.getElementById('iphone-guide').style.display = 'flex';
                 closeAppPopup();
             } else {
-                alert("Pindutin ang tatlong tuldok (⋮) sa taas at i-click ang 'Install App' o 'Add to Home Screen'!");
+                alert("Pindutin ang tatlong tuldok (⋮) sa itaas at i-click ang 'Install App' o 'Add to Home Screen'!");
             }
         };
     </script>
