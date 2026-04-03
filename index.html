@@ -56,7 +56,10 @@
                 grid.innerHTML += `
                     <div class="product-card ${isOut ? 'out' : ''}">
                         <div class="price-label">₱${p.price}</div>
-                        <div class="portrait-box"><img src="${p.img}" alt="${p.name}"></div>
+                        <div class="portrait-box">
+                            <img src="${p.img}" alt="${p.name}">
+                            <div class="inner-promo">COLLECT 3 FOR FREE SHIPPING</div>
+                        </div>
                         <div class="info">
                             <h3>${p.name}</h3>
                             <p style="font-size:0.6rem; color:#888;">${p.qty > 0 ? p.qty + ' limited pieces left' : 'OUT OF STOCK'}</p>
@@ -98,8 +101,15 @@
             updateCartUI();
             try { await updateDoc(doc(db, "inventory", name), { clicks: increment(1) }); } catch(e){}
             window.notify(`Added to collections.`);
-            btn.innerText = "COLLECTED";
-            setTimeout(() => btn.innerText = "ADD TO COLLECTION", 1000);
+            if(btn) {
+                btn.innerText = "COLLECTED";
+                setTimeout(() => btn.innerText = "ADD TO COLLECTION", 1000);
+            }
+        };
+
+        window.removeFromBag = (index) => {
+            window.bag.splice(index, 1);
+            updateCartUI();
         };
 
         window.submitOrder = async () => {
@@ -146,22 +156,22 @@
     </script>
 
     <style>
-        :root { --amethyst: #9b59b2; --bg: #050505; --card: #121212; }
+        :root { --amethyst: #9b59b2; --bg: #050505; --card: #121212; --orange: #e67e22; --green: #2ecc71; }
         body { background: var(--bg); color: #fff; font-family: 'Inter', sans-serif; margin: 0; padding: 0; user-select: none; }
         header { text-align: center; padding: 40px 20px; background: linear-gradient(to bottom, #111, #050505); }
         .logo { font-size: 3rem; font-weight: 200; letter-spacing: 12px; margin-bottom: 5px; text-shadow: 0 0 20px rgba(155, 89, 182, 0.3); }
         .tagline { color: var(--amethyst); font-size: 0.65rem; letter-spacing: 4px; text-transform: uppercase; cursor: pointer; opacity: 0.8; }
-        
         #local-banner { display: none; background: var(--amethyst); text-align: center; padding: 8px; font-size: 0.65rem; font-weight: bold; position: sticky; top: 0; z-index: 100; box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
         
-        /* Buy 3 Banner */
-        #promo-banner { background: #fff; color: #000; text-align: center; padding: 6px; font-size: 0.6rem; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; position: sticky; top: 0; z-index: 99; }
-
         .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 25px; max-width: 1200px; margin: 0 auto; padding: 20px; }
         .product-card { background: var(--card); border: 1px solid #222; position: relative; transition: 0.4s ease; overflow: hidden; border-radius: 4px; }
         .product-card:hover { border-color: var(--amethyst); transform: translateY(-5px); box-shadow: 0 10px 30px rgba(155, 89, 182, 0.1); }
-        .portrait-box { aspect-ratio: 2/3; overflow: hidden; background: #000; }
+        
+        /* Inner Photo Banner */
+        .portrait-box { aspect-ratio: 2/3; overflow: hidden; background: #000; position: relative; }
         .portrait-box img { width: 100%; height: 100%; object-fit: cover; filter: brightness(0.8); transition: 0.5s; }
+        .inner-promo { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(155, 89, 182, 0.85); color: white; font-size: 0.55rem; font-weight: 900; padding: 8px; text-align: center; letter-spacing: 1px; }
+
         .price-label { position: absolute; top: 15px; right: 0; background: var(--amethyst); padding: 6px 18px; font-weight: bold; z-index: 5; font-size: 0.9rem; clip-path: polygon(15% 0, 100% 0, 100% 100%, 0% 100%); }
         .info { padding: 25px; text-align: center; }
         .info h3 { font-size: 0.9rem; letter-spacing: 2px; text-transform: uppercase; margin: 0 0 8px 0; }
@@ -173,8 +183,16 @@
         input, textarea { background: #181818; border: 1px solid #333; color: #fff; width: 100%; padding: 14px; border-radius: 12px; margin-bottom: 15px; box-sizing: border-box; font-family: inherit; outline: none; }
         .checkout-btn { background: var(--amethyst); color: #fff; border: none; padding: 16px; width: 100%; border-radius: 12px; font-weight: bold; cursor: pointer; letter-spacing: 1px; }
         
-        #shipping-msg { font-size: 0.65rem; color: var(--amethyst); margin-bottom: 15px; font-weight: bold; letter-spacing: 1px; }
+        /* Shipping Message Colors */
+        #shipping-msg { font-size: 0.65rem; margin-bottom: 15px; font-weight: bold; letter-spacing: 1px; padding: 8px; border-radius: 8px; }
+        .msg-orange { color: #fff; background: var(--orange); }
+        .msg-green { color: #fff; background: var(--green); }
+        .msg-default { color: var(--amethyst); }
         
+        /* Add/Remove Buttons in Modal */
+        .qty-controls { display: flex; gap: 10px; align-items: center; }
+        .qty-btn { background: #222; color: #fff; border: 1px solid #444; width: 24px; height: 24px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; }
+
         #toast { position: fixed; top: -100px; left: 50%; transform: translateX(-50%); background: rgba(20, 20, 20, 0.95); border: 1px solid var(--amethyst); color: #fff; padding: 12px 25px; border-radius: 50px; font-size: 0.8rem; z-index: 5000; transition: 0.5s cubic-bezier(0.16, 1, 0.3, 1); backdrop-filter: blur(10px); box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
         #toast.show { top: 30px; }
         .app-popup { position: fixed; bottom: 100px; left: 20px; right: 20px; background: rgba(20, 20, 20, 0.95); backdrop-filter: blur(15px); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; padding: 15px; display: none; z-index: 999; animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
@@ -184,7 +202,6 @@
         .app-popup-text p { font-size: 0.65rem; color: #aaa; margin: 0; }
         .install-btn-small { background: #fff; color: #000; border: none; padding: 10px 20px; border-radius: 10px; font-size: 0.75rem; font-weight: bold; cursor: pointer; }
         .close-popup { position: absolute; top: -10px; right: -5px; color: #666; font-size: 1.4rem; cursor: pointer; padding: 5px; }
-        
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes slideUp { from { transform: translateY(50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
         @media (max-width: 600px) { .product-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; } .logo { font-size: 2rem; } }
@@ -192,7 +209,6 @@
 </head>
 <body>
     <div id="toast">Ready</div>
-    <div id="promo-banner">✨ SPECIAL OFFER: COLLECT 3 BOTTLES FOR FREE SHIPPING ✨</div>
     <div id="local-banner">🚚 NEGROS QUICK DELIVERY IS ACTIVE!</div>
     
     <div id="app-install-popup" class="app-popup">
@@ -242,7 +258,7 @@
         <div class="modal">
             <h3 style="color:var(--amethyst); letter-spacing: 3px;">MY COLLECTIONS</h3>
             
-            <div id="shipping-msg">Add more items to unlock free shipping.</div>
+            <div id="shipping-msg" class="msg-default">COLLECT 3 FOR FREE SHIPPING</div>
 
             <div id="cart-items" style="margin:15px 0; text-align:left; font-size:0.8rem; max-height: 150px; overflow-y: auto;"></div>
             <div id="cart-total" style="font-weight:bold; margin-bottom:25px; font-size: 1.2rem; letter-spacing: 1px;">TOTAL: ₱0</div>
@@ -268,23 +284,36 @@
             const count = window.bag.length;
             document.getElementById('cart-count').innerText = count;
             
-            // Shipping Message Logic
             const sMsg = document.getElementById('shipping-msg');
+            sMsg.className = ""; // Reset classes
+
             if(count === 0) {
                 sMsg.innerText = "COLLECT 3 FOR FREE SHIPPING";
+                sMsg.classList.add('msg-default');
             } else if(count === 1) {
                 sMsg.innerText = "ADD 2 MORE FOR FREE SHIPPING 🚚";
+                sMsg.classList.add('msg-orange');
             } else if(count === 2) {
                 sMsg.innerText = "ADD 1 MORE FOR FREE SHIPPING 🚚";
+                sMsg.classList.add('msg-orange');
             } else {
-                sMsg.innerText = "YOU'VE UNLOCKED FREE SHIPPING! 🎉";
+                sMsg.innerText = "FREE SHIPPING UNLOCKED! 🎉";
+                sMsg.classList.add('msg-green');
             }
 
             const list = document.getElementById('cart-items'); list.innerHTML = "";
             let total = 0; 
-            window.bag.forEach(item => {
+            window.bag.forEach((item, index) => {
                 total += item.price; 
-                list.innerHTML += `<div style="display:flex; justify-content:space-between; margin-bottom:10px;"><span>${item.name}</span><span style="color:var(--amethyst); font-weight:bold;">₱${item.price}</span></div>`;
+                list.innerHTML += `
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                    <span>${item.name}</span>
+                    <div class="qty-controls">
+                        <span style="color:var(--amethyst); font-weight:bold; margin-right:10px;">₱${item.price}</span>
+                        <button class="qty-btn" onclick="removeFromBag(${index})">−</button>
+                        <button class="qty-btn" onclick="addToBag('${item.name}', ${item.price}, '', null)">+</button>
+                    </div>
+                </div>`;
             });
             document.getElementById('cart-total').innerText = "TOTAL: ₱" + total;
         }
