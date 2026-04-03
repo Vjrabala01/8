@@ -92,7 +92,6 @@
             return { fee: 125, loc: "Outside Negros" };
         };
 
-        // --- FLY ANIMATION LOGIC ---
         window.addToBag = async (name, price, img, btn) => {
             const imgId = `img-${name.replace(/\s+/g, '')}`;
             const originalImg = document.getElementById(imgId);
@@ -183,6 +182,25 @@
 
         .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 15px; max-width: 1200px; margin: 0 auto; padding: 15px; }
         .product-card { background: var(--card); border: 1px solid #222; position: relative; border-radius: 4px; overflow: hidden; transition: transform 0.3s ease; }
+        
+        /* SOLD OUT STYLES */
+        .product-card.out .portrait-box::after {
+            content: "SOLD OUT";
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.7);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            font-size: 1.1rem;
+            letter-spacing: 2px;
+            z-index: 10;
+        }
+        .product-card.out img { filter: grayscale(1) brightness(0.5); }
+        .product-card.out .inner-promo { display: none; }
+
         .portrait-box { aspect-ratio: 2/3; overflow: hidden; background: #000; position: relative; }
         .portrait-box img { width: 100%; height: 100%; object-fit: cover; filter: brightness(0.8); }
         
@@ -281,10 +299,10 @@
                 sMsg.classList.add('msg-default');
             } else if(count < 3) {
                 sMsg.innerText = `ADD ${3-count} MORE FOR FREE SHIPPING 🚚`;
-                sMsg.classList.add('msg-orange'); // Orange kung hindi pa free
+                sMsg.classList.add('msg-orange'); 
             } else {
                 sMsg.innerText = "FREE SHIPPING UNLOCKED! 🎉";
-                sMsg.classList.add('msg-green'); // Green kung free na
+                sMsg.classList.add('msg-green'); 
             }
 
             const list = document.getElementById('cart-items'); list.innerHTML = "";
@@ -310,15 +328,12 @@
             if (addr.length > 3 && count > 0) {
                 shipUI.style.display = 'block';
                 const res = calculateShipping(addr);
-                
-                // Real-time Shipping Fee Color Coding
                 shipCostElem.innerText = "₱" + res.fee;
                 if(res.fee === 0) {
-                    shipCostElem.style.color = "var(--green)"; // Green kung 0
+                    shipCostElem.style.color = "var(--green)"; 
                 } else {
-                    shipCostElem.style.color = "var(--orange)"; // Orange kung may bayad
+                    shipCostElem.style.color = "var(--orange)"; 
                 }
-
                 document.getElementById('ship-loc').innerText = "Detected: " + res.loc;
                 document.getElementById('grand-total').innerText = "₱" + (itemsTotal + res.fee);
             } else { shipUI.style.display = 'none'; }
