@@ -37,6 +37,7 @@
 
         window.handleLogout = () => signOut(auth);
 
+        // --- INVENTORY LOGIC ---
         window.saveProduct = async () => {
             const name = document.getElementById('p-name').value.trim();
             const price = document.getElementById('p-price').value;
@@ -66,6 +67,28 @@
             catch (e) { console.error(e); }
         };
 
+        // --- MARKETING / PROMO LOGIC ---
+        window.savePromo = async () => {
+            const img = document.getElementById('promo-img').value;
+            const end = document.getElementById('promo-end').value;
+            const disc = document.getElementById('promo-perc').value;
+            const local = document.getElementById('promo-local').checked;
+            
+            if(!img) return alert("Maglagay ka ng Banner Image Link!");
+
+            try {
+                await setDoc(doc(db, "settings", "flash-sale"), { 
+                    promoImg: img, 
+                    endTime: end, 
+                    discount: disc, 
+                    active: true, 
+                    localQuick: local 
+                });
+                alert("🚀 LIVE: Marketing Campaign activated!");
+            } catch (e) { alert("Error: " + e.message); }
+        };
+
+        // --- ORDERS LOGIC ---
         window.updateOrderStatus = async (id, status) => {
             let updateData = { status: status };
             if (status === "Shipped") {
@@ -149,19 +172,20 @@
         .stat-box { background: var(--card); padding: 15px; border-radius: 12px; text-align: center; border: 1px solid #222; }
         .stat-box h2 { color: var(--amethyst); font-size: 1.1rem; margin-top: 5px; }
 
-        .tab-nav { display: flex; gap: 5px; margin-bottom: 15px; }
-        .tab-btn { flex: 1; background: #222; border: none; color: white; padding: 10px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 0.8rem; }
+        .tab-nav { display: flex; gap: 5px; margin-bottom: 15px; overflow-x: auto; padding-bottom: 5px; }
+        .tab-btn { flex: 1; min-width: 100px; background: #222; border: none; color: white; padding: 10px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 0.75rem; }
         .tab-btn.active { background: var(--amethyst); }
 
         .card { background: var(--card); padding: 15px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #222; }
-        h3 { font-size: 1rem; margin-top: 0; color: var(--amethyst); }
+        h3 { font-size: 1rem; margin-top: 0; color: var(--amethyst); margin-bottom: 15px; }
 
-        input, select { background: #1a1a1a; border: 1px solid #333; color: white; padding: 12px; margin-bottom: 10px; width: 100%; border-radius: 8px; font-size: 0.9rem; }
-        .btn-main { background: var(--amethyst); color: white; border: none; padding: 15px; border-radius: 8px; width: 100%; font-weight: bold; cursor: pointer; }
+        input, select { background: #1a1a1a; border: 1px solid #333; color: white; padding: 12px; margin-bottom: 10px; width: 100%; border-radius: 8px; font-size: 0.9rem; outline: none; }
+        input:focus { border-color: var(--amethyst); }
+        .btn-main { background: var(--amethyst); color: white; border: none; padding: 15px; border-radius: 8px; width: 100%; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        .btn-main:active { transform: scale(0.98); }
 
-        /* Responsive Table */
         .table-container { width: 100%; overflow-x: auto; }
-        table { width: 100%; border-collapse: collapse; min-width: 400px; font-size: 0.8rem; }
+        table { width: 100%; border-collapse: collapse; min-width: 450px; font-size: 0.8rem; }
         th, td { text-align: left; padding: 10px; border-bottom: 1px solid #222; }
         .table-img { width: 35px; height: 35px; border-radius: 5px; object-fit: cover; }
         .qty-control { display: flex; align-items: center; gap: 8px; }
@@ -173,14 +197,14 @@
         .status-pill.delivered { background: #2ecc71; }
         
         .del-btn { color: #e74c3c; font-size: 1rem; background: none; border: none; cursor: pointer; }
-        .gender-tag { color: var(--amethyst); text-transform: uppercase; font-size: 0.6rem; }
+        .gender-tag { color: var(--amethyst); text-transform: uppercase; font-size: 0.6rem; font-weight: bold; }
         
         #login-overlay { position: fixed; inset: 0; background: black; z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 20px; }
         
         @media (max-width: 600px) {
             body { padding: 10px; }
             .stats-grid { grid-template-columns: 1fr; }
-            .logo-text { font-size: 1rem; }
+            h2 { font-size: 1rem; }
         }
     </style>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -203,29 +227,30 @@
 
     <div class="stats-grid">
         <div class="stat-box"><small>Total Revenue</small><h2 id="total-rev">₱0</h2></div>
-        <div class="stat-box"><small>Total Clicks</small><h2 id="stat-clicks">0</h2></div>
+        <div class="stat-box"><small>Engagement</small><h2 id="stat-clicks">0 Clicks</h2></div>
     </div>
 
     <div class="tab-nav">
         <button class="tab-btn active" onclick="showTab('inventory-tab')">INVENTORY</button>
         <button class="tab-btn" onclick="showTab('orders-tab')">ORDERS</button>
+        <button class="tab-btn" onclick="showTab('promo-tab')">MARKETING</button>
     </div>
 
     <div id="inventory-tab" class="tab-content">
         <div class="card">
-            <h3>Add Scent</h3>
+            <h3>Add New Scent</h3>
             <form id="p-form" onsubmit="event.preventDefault()">
                 <input type="text" id="p-name" placeholder="Name (e.g. Dior Sauvage)">
                 <div style="display:flex; gap:10px;">
                     <input type="number" id="p-price" placeholder="Price">
                     <input type="number" id="p-qty" placeholder="Qty">
                 </div>
-                <input type="text" id="p-img" placeholder="Image URL">
+                <input type="text" id="p-img" placeholder="Image Direct Link">
                 <select id="p-gender">
                     <option value="male">MALE</option>
                     <option value="female">FEMALE</option>
                 </select>
-                <button class="btn-main" onclick="saveProduct()">SYNC TO INDEX</button>
+                <button class="btn-main" onclick="saveProduct()">SYNC TO WEBSITE</button>
             </form>
         </div>
 
@@ -243,6 +268,7 @@
 
     <div id="orders-tab" class="tab-content" style="display: none;">
         <div class="card">
+            <h3>Transactions</h3>
             <div class="table-container">
                 <table>
                     <thead>
@@ -251,6 +277,32 @@
                     <tbody id="order-list"></tbody>
                 </table>
             </div>
+        </div>
+    </div>
+
+    <div id="promo-tab" class="tab-content" style="display: none;">
+        <div class="card">
+            <h3>Holiday Pop-up & Banner</h3>
+            <label style="font-size: 0.7rem; color: #888;">Promo Banner Image Link:</label>
+            <input type="text" id="promo-img" placeholder="https://i.postimg.cc/banner.jpg">
+            
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <div>
+                    <label style="font-size: 0.7rem; color: #888;">Sale End Date:</label>
+                    <input type="datetime-local" id="promo-end">
+                </div>
+                <div>
+                    <label style="font-size: 0.7rem; color: #888;">Discount %:</label>
+                    <input type="number" id="promo-perc" placeholder="e.g. 20">
+                </div>
+            </div>
+
+            <div style="margin: 15px 0; display: flex; align-items: center; gap: 10px;">
+                <input type="checkbox" id="promo-local" style="width: auto; margin: 0;">
+                <label style="font-size: 0.85rem; cursor: pointer;" for="promo-local">Enable Negros Delivery Banner</label>
+            </div>
+            
+            <button class="btn-main" onclick="savePromo()">ACTIVATE CAMPAIGN</button>
         </div>
     </div>
 
