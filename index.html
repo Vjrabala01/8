@@ -121,26 +121,8 @@
             
             try {
                 const itemsTotal = window.bag.reduce((s, i) => s + i.price, 0);
-                
-                // --- DYNAMIC SHIPPING CALCULATION ---
-                let shippingFee = 125; // Default Rate
-                let locName = "Outside Negros";
-                const cleanAddr = addr.toLowerCase();
-
-                if (window.bag.length >= 3) {
-                    shippingFee = 0;
-                    locName = "PROMO: FREE SHIPPING";
-                } else {
-                    if (cleanAddr.includes("bacolod")) {
-                        shippingFee = 50;
-                        locName = "Bacolod City";
-                    } else if (cleanAddr.includes("negros")) {
-                        shippingFee = 110;
-                        locName = "Within Negros";
-                    }
-                }
-
-                const finalTotal = itemsTotal + shippingFee;
+                const shipDetails = calculateShipping(addr);
+                const finalTotal = itemsTotal + shipDetails.fee;
 
                 const docRef = await addDoc(collection(db, "orders"), {
                     customerName: name, 
@@ -156,12 +138,21 @@
                 let msg = `NYXEN PRIVATE COLLECTION ORDER #${orderID}\n\n`;
                 window.bag.forEach(i => msg += `• ${i.name}\n`);
                 msg += `\nSubtotal: ₱${itemsTotal}`;
-                msg += `\nShipping: ₱${shippingFee} (${locName})`;
+                msg += `\nShipping: ₱${shipDetails.fee} (${shipDetails.loc})`;
                 msg += `\nTOTAL: ₱${finalTotal}`;
                 msg += `\n\nRecipient: ${name}\nPhone: ${phone}\nAddress: ${addr}`;
                 
                 window.location.href = `https://m.me/296084720263105?text=${encodeURIComponent(msg)}`;
             } catch (e) { window.notify("Order failed."); }
+        };
+
+        // Helper for shipping calculation
+        window.calculateShipping = (address) => {
+            if (window.bag.length >= 3) return { fee: 0, loc: "FREE SHIPPING" };
+            const clean = address.toLowerCase();
+            if (clean.includes("bacolod")) return { fee: 50, loc: "Bacolod City" };
+            if (clean.includes("negros")) return { fee: 110, loc: "Within Negros" };
+            return { fee: 125, loc: "Outside Negros" };
         };
 
         if ('serviceWorker' in navigator) {
@@ -215,15 +206,14 @@
         .msg-default { color: #aaa; border: 1px dashed #333; }
         .qty-controls { display: flex; gap: 10px; align-items: center; }
         .qty-btn { background: #222; color: #fff; border: 1px solid #444; width: 26px; height: 26px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; }
+        
+        /* Shipping Breakdown UI */
+        .shipping-breakdown { font-size: 0.7rem; color: #888; border-top: 1px solid #222; margin-top: 10px; padding-top: 10px; text-align: left; }
+        .ship-line { display: flex; justify-content: space-between; margin-bottom: 5px; }
+
         #toast { position: fixed; top: -100px; left: 50%; transform: translateX(-50%); background: rgba(20, 20, 20, 0.95); border: 1px solid var(--amethyst); color: #fff; padding: 12px 25px; border-radius: 50px; font-size: 0.8rem; z-index: 5000; transition: 0.5s cubic-bezier(0.16, 1, 0.3, 1); backdrop-filter: blur(10px); box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
         #toast.show { top: 30px; }
         .app-popup { position: fixed; bottom: 100px; left: 20px; right: 20px; background: rgba(20, 20, 20, 0.95); backdrop-filter: blur(15px); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; padding: 15px; display: none; z-index: 999; animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
-        .app-popup-content { display: flex; align-items: center; gap: 15px; position: relative; }
-        .app-popup-text { flex-grow: 1; text-align: left; }
-        .app-popup-text strong { font-size: 0.85rem; color: #fff; display: block; }
-        .app-popup-text p { font-size: 0.65rem; color: #aaa; margin: 0; }
-        .install-btn-small { background: #fff; color: #000; border: none; padding: 10px 20px; border-radius: 10px; font-size: 0.75rem; font-weight: bold; cursor: pointer; }
-        .close-popup { position: absolute; top: -10px; right: -5px; color: #666; font-size: 1.4rem; cursor: pointer; padding: 5px; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes slideUp { from { transform: translateY(50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
         @media (max-width: 600px) { .product-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; } .logo { font-size: 2rem; } }
@@ -233,62 +223,27 @@
     <div id="toast">Ready</div>
     <div id="local-banner">🚚 NEGROS QUICK DELIVERY IS ACTIVE!</div>
     
-    <div id="app-install-popup" class="app-popup">
-        <div class="app-popup-content">
-            <img src="icon.png" width="50" height="50" style="border-radius:12px;">
-            <div class="app-popup-text">
-                <strong>NYXEN Digital Boutique</strong>
-                <p>Install for exclusive access and tracking.</p>
-            </div>
-            <button onclick="showInstallGuide()" class="install-btn-small">INSTALL</button>
-            <span class="close-popup" onclick="closeAppPopup()">&times;</span>
-        </div>
-    </div>
-
-    <div id="tracker-overlay" class="overlay">
-        <div class="modal">
-            <h3 style="color:var(--amethyst); letter-spacing: 2px;">ORDER TRACKING</h3>
-            <p style="font-size:0.7rem; color:#666; margin-bottom:15px;">Enter the last 5 characters of your Order ID</p>
-            <input type="text" id="track-input" placeholder="Example: TLMLX">
-            <button class="checkout-btn" onclick="trackOrder()">LOCATE PARCEL</button>
-            <div id="tracker-result"></div>
-            <p onclick="document.getElementById('tracker-overlay').style.display='none'" style="cursor:pointer; margin-top:20px; font-size:0.65rem; color:#666; letter-spacing: 1px;">BACK TO SHOP</p>
-        </div>
-    </div>
-
-    <div id="iphone-guide" class="overlay" onclick="this.style.display='none'">
-        <div class="modal">
-            <div style="background:var(--amethyst); width:50px; height:50px; border-radius:50%; margin:0 auto 20px; display:flex; align-items:center; justify-content:center;"><img src="icon.png" width="30"></div>
-            <h3 style="letter-spacing: 2px; font-size: 1rem;">IOS INSTALLATION</h3>
-            <p style="font-size:0.8rem; color:#aaa; line-height:1.7; text-align: left; margin: 20px 0;">
-                1. Locate the <strong>Share</strong> icon (square with arrow up)<br>
-                2. Select <strong>'Add to Home Screen'</strong><br>
-                3. Confirm by tapping <strong>'Add'</strong>.
-            </p>
-            <button class="checkout-btn">UNDERSTOOD</button>
-        </div>
-    </div>
-
-    <div id="promo-overlay" class="overlay" onclick="this.style.display='none'">
-        <div class="modal" style="padding:0; border:none; background:transparent; max-width:320px;">
-            <img id="promo-popup-img" src="" style="width:100%; border-radius:20px;">
-            <p style="margin-top:15px; font-size:0.6rem; color:rgba(255,255,255,0.5); letter-spacing: 2px;">TAP TO CONTINUE</p>
-        </div>
-    </div>
-    
     <div id="cart-overlay" class="overlay">
         <div class="modal">
             <h3 style="color:var(--amethyst); letter-spacing: 3px;">MY COLLECTIONS</h3>
-            
             <div id="shipping-msg" class="msg-default">COLLECT TOTAL OF 3 BOTTLES FOR FREE SHIPPING</div>
 
             <div id="cart-items" style="margin:15px 0; text-align:left; font-size:0.8rem; max-height: 150px; overflow-y: auto;"></div>
-            <div id="cart-total" style="font-weight:bold; margin-bottom:15px; font-size: 1.2rem; letter-spacing: 1px;">TOTAL: ₱0</div>
             
+            <div id="cart-total" style="font-weight:bold; font-size: 1.1rem; letter-spacing: 1px; text-align: right;">ITEMS: ₱0</div>
+            
+            <div class="shipping-breakdown" id="ship-ui" style="display:none;">
+                <div class="ship-line"><span>Shipping Fee:</span> <span id="ship-cost" style="color:var(--amethyst)">₱0</span></div>
+                <div class="ship-line" style="font-size:0.6rem; color:#555;"><span id="ship-loc">Calculating...</span></div>
+                <div class="ship-line" style="font-size:1.3rem; color:#fff; font-weight:900; margin-top:10px; border-top:1px solid #333; padding-top:10px;">
+                    <span>GRAND TOTAL:</span> <span id="grand-total">₱0</span>
+                </div>
+            </div>
+
             <br>
             <input type="text" id="c-name" placeholder="Full Name">
             <input type="tel" id="c-phone" placeholder="Phone Number">
-            <textarea id="c-addr" placeholder="Detailed Address (City/Province)" rows="2"></textarea>
+            <textarea id="c-addr" placeholder="Detailed Address (City/Province)" rows="2" oninput="updateCartUI()"></textarea>
             
             <button class="checkout-btn" onclick="submitOrder()">CHECKOUT VIA MESSENGER</button>
             <p onclick="document.getElementById('cart-overlay').style.display='none'" style="cursor:pointer; margin-top:20px; font-size:0.65rem; color:#666; letter-spacing: 1px;">BACK TO SHOP</p>
@@ -299,7 +254,6 @@
         COLLECTIONS (<span id="cart-count">0</span>)
     </button>
     
-    <button onclick="openTracker()" style="position:fixed; bottom:25px; left:25px; background:rgba(255,255,255,0.03); border:1px solid #222; color:#555; border-radius:50px; padding:10px 18px; font-size:0.65rem; z-index:1000; backdrop-filter: blur(5px); letter-spacing: 1px;">TRACK ORDER</button>
     <header><div class="logo">NYXEN</div><div class="tagline">Premium Inspired Fragrance</div></header>
     <main id="product-grid" class="product-grid"></main>
 
@@ -308,27 +262,25 @@
             const count = window.bag.length;
             document.getElementById('cart-count').innerText = count;
             
+            // Shipping Banner Logic
             const sMsg = document.getElementById('shipping-msg');
             sMsg.className = ""; 
-
             if(count === 0) {
                 sMsg.innerText = "COLLECT TOTAL OF 3 BOTTLES FOR FREE SHIPPING";
                 sMsg.classList.add('msg-default');
-            } else if(count === 1) {
-                sMsg.innerText = "ADD 2 MORE FOR FREE SHIPPING 🚚";
-                sMsg.classList.add('msg-orange');
-            } else if(count === 2) {
-                sMsg.innerText = "ADD 1 MORE FOR FREE SHIPPING 🚚";
+            } else if(count < 3) {
+                sMsg.innerText = `ADD ${3-count} MORE FOR FREE SHIPPING 🚚`;
                 sMsg.classList.add('msg-orange');
             } else {
                 sMsg.innerText = "FREE SHIPPING UNLOCKED! 🎉";
                 sMsg.classList.add('msg-green');
             }
 
+            // List Items
             const list = document.getElementById('cart-items'); list.innerHTML = "";
-            let total = 0; 
+            let itemsTotal = 0; 
             window.bag.forEach((item, index) => {
-                total += item.price; 
+                itemsTotal += item.price; 
                 list.innerHTML += `
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
                     <span>${item.name}</span>
@@ -339,7 +291,21 @@
                     </div>
                 </div>`;
             });
-            document.getElementById('cart-total').innerText = "TOTAL: ₱" + total;
+            document.getElementById('cart-total').innerText = "ITEMS: ₱" + itemsTotal;
+
+            // Real-time Shipping Breakdown Logic
+            const addr = document.getElementById('c-addr').value;
+            const shipUI = document.getElementById('ship-ui');
+            
+            if (addr.length > 3 && count > 0) {
+                shipUI.style.display = 'block';
+                const res = calculateShipping(addr);
+                document.getElementById('ship-cost').innerText = "₱" + res.fee;
+                document.getElementById('ship-loc').innerText = "Detected: " + res.loc;
+                document.getElementById('grand-total').innerText = "₱" + (itemsTotal + res.fee);
+            } else {
+                shipUI.style.display = 'none';
+            }
         }
     </script>
 </body>
