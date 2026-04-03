@@ -64,10 +64,10 @@
                 return;
             }
 
-            filtered.forEach(p => {
+            filtered.forEach((p, index) => {
                 const isOut = p.qty <= 0;
                 grid.innerHTML += `
-                    <div class="product-card ${isOut ? 'out' : ''}">
+                    <div class="product-card ${isOut ? 'out' : ''}" style="animation-delay: ${index * 0.05}s">
                         <div class="price-label">₱${p.price}</div>
                         <div class="portrait-box">
                             <img src="${p.img}" alt="${p.name}">
@@ -138,61 +138,52 @@
         * { box-sizing: border-box; }
         body { background: var(--bg); color: #fff; font-family: 'Inter', sans-serif; margin: 0; padding: 0; user-select: none; overflow-x: hidden; }
         
-        /* Responsive Header */
-        header { text-align: center; padding: 30px 15px 10px; background: linear-gradient(to bottom, #111, #050505); }
-        .logo { font-size: 2.5rem; font-weight: 200; letter-spacing: 8px; margin-bottom: 5px; text-shadow: 0 0 20px rgba(155, 89, 182, 0.3); }
-        .tagline { color: var(--amethyst); font-size: 0.6rem; letter-spacing: 3px; text-transform: uppercase; opacity: 0.8; }
+        header { text-align: center; padding: 40px 20px 10px; background: linear-gradient(to bottom, #111, #050505); }
+        .logo { font-size: 2.5rem; font-weight: 200; letter-spacing: 8px; margin-bottom: 5px; text-shadow: 0 0 20px rgba(155, 89, 182, 0.3); animation: fadeInDown 0.8s ease forwards; }
+        .tagline { color: var(--amethyst); font-size: 0.6rem; letter-spacing: 3px; text-transform: uppercase; opacity: 0.8; animation: fadeIn 1.2s ease forwards; }
         
-        /* Filter Nav */
-        .filter-nav { display: flex; justify-content: center; gap: 8px; margin: 20px auto; flex-wrap: wrap; max-width: 95%; }
+        .filter-nav { display: flex; justify-content: center; gap: 8px; margin: 20px auto; flex-wrap: wrap; max-width: 95%; animation: fadeIn 1s ease forwards; }
         .filter-btn { background: none; border: 1px solid #222; color: #555; padding: 8px 12px; border-radius: 5px; font-size: 0.55rem; letter-spacing: 1px; cursor: pointer; transition: 0.3s; font-weight: bold; flex: 1; max-width: 120px; }
         .filter-btn.active { border-color: var(--amethyst); color: #fff; background: rgba(155, 89, 182, 0.1); }
 
-        /* Grid System */
         .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 15px; max-width: 1200px; margin: 0 auto; padding: 15px; }
         
-        .product-card { background: var(--card); border: 1px solid #222; position: relative; border-radius: 4px; overflow: hidden; transition: 0.4s ease; }
+        .product-card { background: var(--card); border: 1px solid #222; position: relative; border-radius: 4px; overflow: hidden; transition: transform 0.3s ease, border-color 0.3s ease; opacity: 0; transform: translateY(20px); animation: fadeInUp 0.5s ease forwards; }
+        .product-card:active { transform: scale(0.98); }
         .portrait-box { aspect-ratio: 2/3; overflow: hidden; background: #000; position: relative; }
-        .portrait-box img { width: 100%; height: 100%; object-fit: cover; filter: brightness(0.8); }
-        .inner-promo { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(155, 89, 182, 0.85); color: white; font-size: 0.5rem; font-weight: 900; padding: 6px; text-align: center; letter-spacing: 1px; }
+        .portrait-box img { width: 100%; height: 100%; object-fit: cover; filter: brightness(0.8); transition: 0.5s ease; }
+        .product-card:hover .portrait-box img { transform: scale(1.05); filter: brightness(1); }
         
         .price-label { position: absolute; top: 10px; right: 0; background: var(--amethyst); padding: 4px 12px; font-weight: bold; z-index: 5; font-size: 0.8rem; clip-path: polygon(15% 0, 100% 0, 100% 100%, 0% 100%); }
         .info { padding: 15px; text-align: center; }
         .info h3 { font-size: 0.75rem; letter-spacing: 1px; margin: 0 0 5px; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .add-btn { background: #fff; color: #000; border: none; padding: 10px; width: 100%; font-weight: bold; cursor: pointer; margin-top: 8px; font-size: 0.65rem; letter-spacing: 1px; }
+        .add-btn { background: #fff; color: #000; border: none; padding: 10px; width: 100%; font-weight: bold; cursor: pointer; margin-top: 8px; font-size: 0.65rem; letter-spacing: 1px; transition: 0.2s; }
+        .add-btn:active { background: var(--amethyst); color: #fff; }
         
-        /* Floating Cart Button */
-        .cart-btn { position: fixed; bottom: 20px; right: 20px; background: var(--amethyst); padding: 14px 20px; border-radius: 50px; border: none; color: #fff; font-weight: bold; z-index: 1000; cursor: pointer; box-shadow: 0 8px 25px rgba(155, 89, 182, 0.4); font-size: 0.8rem; }
+        .cart-btn { position: fixed; bottom: 20px; right: 20px; background: var(--amethyst); padding: 14px 20px; border-radius: 50px; border: none; color: #fff; font-weight: bold; z-index: 1000; cursor: pointer; box-shadow: 0 8px 25px rgba(155, 89, 182, 0.4); font-size: 0.8rem; animation: slideInRight 0.5s ease-out forwards; }
         
-        /* Responsive Modal */
-        .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); backdrop-filter: blur(8px); display: none; align-items: center; justify-content: center; z-index: 2000; padding: 10px; }
-        .modal { background: #111; padding: 25px 20px; border-radius: 15px; border: 1px solid rgba(155, 89, 182, 0.3); width: 100%; max-width: 400px; text-align: center; position: relative; max-height: 90vh; overflow-y: auto; }
+        .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); backdrop-filter: blur(8px); display: none; align-items: center; justify-content: center; z-index: 2000; padding: 10px; transition: opacity 0.3s ease; }
+        .modal { background: #111; padding: 25px 20px; border-radius: 15px; border: 1px solid rgba(155, 89, 182, 0.3); width: 100%; max-width: 400px; text-align: center; position: relative; max-height: 90vh; overflow-y: auto; transform: scale(0.9); animation: modalIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
         
         .checkout-btn { background: var(--amethyst); color: #fff; border: none; padding: 15px; width: 100%; border-radius: 10px; font-weight: bold; cursor: pointer; letter-spacing: 1px; margin-top: 10px; font-size: 0.9rem; transition: 0.3s; }
+        .checkout-btn:hover { background: #8e44ad; }
         
-        input, textarea { background: #181818; border: 1px solid #333; color: #fff; width: 100%; padding: 12px; border-radius: 10px; margin-bottom: 8px; outline: none; font-family: inherit; font-size: 0.9rem; }
-        
-        /* Cart Items UI */
-        #shipping-msg { font-size: 0.6rem; margin-bottom: 12px; font-weight: bold; padding: 8px; border-radius: 6px; }
-        .msg-orange { background: var(--orange); color: #fff; }
-        .msg-green { background: var(--green); color: #fff; }
-        .msg-default { color: #aaa; border: 1px dashed #333; }
+        /* Keyframes */
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 0.8; } }
+        @keyframes fadeInDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes modalIn { from { opacity: 0; transform: scale(0.8); } to { opacity: 1; transform: scale(1); } }
+        @keyframes slideInRight { from { opacity: 0; transform: translateX(50px); } to { opacity: 1; transform: translateX(0); } }
 
-        .qty-controls { display: flex; gap: 8px; align-items: center; }
-        .qty-btn { background: #222; color: #fff; border: 1px solid #444; width: 24px; height: 24px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-        
-        .shipping-breakdown { font-size: 0.7rem; color: #888; border-top: 1px solid #222; margin-top: 10px; padding-top: 10px; text-align: left; }
-        .ship-line { display: flex; justify-content: space-between; margin-bottom: 4px; }
+        input, textarea { background: #181818; border: 1px solid #333; color: #fff; width: 100%; padding: 12px; border-radius: 10px; margin-bottom: 8px; outline: none; font-family: inherit; font-size: 0.9rem; transition: border-color 0.3s; }
+        input:focus, textarea:focus { border-color: var(--amethyst); }
 
-        #toast { position: fixed; top: -100px; left: 50%; transform: translateX(-50%); background: #111; border: 1px solid var(--amethyst); color: #fff; padding: 10px 20px; border-radius: 50px; z-index: 5000; transition: 0.5s; font-size: 0.75rem; width: max-content; }
+        #toast { position: fixed; top: -100px; left: 50%; transform: translateX(-50%); background: #111; border: 1px solid var(--amethyst); color: #fff; padding: 10px 20px; border-radius: 50px; z-index: 5000; transition: 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.55); font-size: 0.75rem; width: max-content; }
         #toast.show { top: 20px; }
 
-        /* Media Queries for fine-tuning */
         @media (max-width: 400px) {
             .product-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; padding: 10px; }
             .logo { font-size: 2rem; }
-            .modal { padding: 20px 15px; }
-            .cart-btn { bottom: 15px; right: 15px; padding: 12px 16px; font-size: 0.7rem; }
         }
     </style>
 </head>
@@ -213,9 +204,7 @@
         <div class="modal">
             <h3 style="color:var(--amethyst); letter-spacing: 2px; margin-top: 0;">MY COLLECTIONS</h3>
             <div id="shipping-msg" class="msg-default">COLLECT TOTAL OF 3 BOTTLES FOR FREE SHIPPING</div>
-            
             <div id="cart-items" style="margin:15px 0; text-align:left; font-size:0.75rem; max-height: 150px; overflow-y: auto;"></div>
-            
             <div id="items-total-ui" style="font-weight:bold; font-size: 0.9rem; text-align: right;">ITEMS: ₱0</div>
             
             <div class="shipping-breakdown" id="ship-ui" style="display:none;">
@@ -230,9 +219,7 @@
             <input type="text" id="c-name" placeholder="Full Name">
             <input type="tel" id="c-phone" placeholder="Phone Number">
             <textarea id="c-addr" placeholder="Address (include City/Province)" rows="2" oninput="updateCartUI()"></textarea>
-            
             <button class="checkout-btn" onclick="submitOrder()">CHECKOUT VIA MESSENGER</button>
-            
             <p onclick="document.getElementById('cart-overlay').style.display='none'" style="cursor:pointer; margin-top:15px; font-size:0.65rem; color:#666; letter-spacing: 1px;">BACK TO SHOP</p>
         </div>
     </div>
@@ -247,7 +234,6 @@
         function updateCartUI() {
             const count = window.bag.length;
             document.getElementById('cart-count').innerText = count;
-            
             const sMsg = document.getElementById('shipping-msg');
             sMsg.className = ""; 
             if(count === 0) {
