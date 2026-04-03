@@ -12,7 +12,8 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, doc, getDoc, onSnapshot, collection, addDoc, updateDoc, increment } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        // Dinagdag ang getDocs dito sa import line
+        import { getFirestore, doc, getDoc, onSnapshot, collection, addDoc, updateDoc, increment, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyCXLACoKi11HXdQ47uEL-HnIw_R-T-44vo",
@@ -63,18 +64,34 @@
             });
         });
 
-        // --- 3. TRACK ORDER LOGIC ---
+        // --- 3. SMART TRACK ORDER LOGIC (FIXED) ---
         window.trackOrder = async () => {
-            const id = prompt("Enter your Order ID (Check Messenger):");
-            if(!id) return;
+            const inputID = prompt("Enter your 5-digit Order ID (e.g. TLMLX):");
+            if(!inputID) return;
+            
+            const cleanInput = inputID.trim().toUpperCase();
+            
             try {
-                const d = await getDoc(doc(db, "orders", id.trim()));
-                if(d.exists()) {
-                    alert(`NYXEN TRACKER:\nOrder Status: ${d.data().status.toUpperCase()}\nCustomer: ${d.data().customerName}`);
-                } else {
-                    alert("Order ID not found, Bro. Try again!");
+                // Bina-browse ang lahat ng orders para mahanap yung match sa huling 5 letters
+                const querySnapshot = await getDocs(collection(db, "orders"));
+                let found = false;
+
+                querySnapshot.forEach((doc) => {
+                    const fullID = doc.id.toUpperCase();
+                    if (fullID.endsWith(cleanInput)) {
+                        const data = doc.data();
+                        alert(`NYXEN TRACKER 🚚\n\nOrder ID: #${cleanInput}\nStatus: ${data.status.toUpperCase()}\nCustomer: ${data.customerName}\n\n(I-message kami sa Messenger kung may tanong ka!)`);
+                        found = true;
+                    }
+                });
+
+                if (!found) {
+                    alert("Order ID not found, Bro. Siguraduhin na tama ang 5 letters galing sa message!");
                 }
-            } catch(e) { alert("Error tracking order."); }
+            } catch (e) {
+                console.error(e);
+                alert("Error sa pag-track. Try again later!");
+            }
         };
 
         // --- 4. ADD TO BAG & CLICKS TRACKER ---
@@ -95,7 +112,7 @@
             }, 1000);
         };
 
-        // --- 5. CHECKOUT / SUBMIT ORDER (AUTO-MESSAGE VERSION) ---
+        // --- 5. CHECKOUT / SUBMIT ORDER ---
         window.submitOrder = async () => {
             const name = document.getElementById('c-name').value;
             const addr = document.getElementById('c-addr').value;
@@ -117,19 +134,15 @@
                 });
 
                 const orderID = docRef.id.slice(-5).toUpperCase();
-                
-                // Gagawa tayo ng message format
-                let msg = `NYXEN ORDER #${orderID}\n\n`;
+                let msg = `NYXEN ORDER #${orderID}\n`;
+                msg += `ID: ${docRef.id}\n\n`;
                 window.bag.forEach(i => msg += `• ${i.name} (₱${i.price})\n`);
                 msg += `\nTOTAL: ₱${total}\nName: ${name}\nAddr: ${addr}`;
 
-                // PLAN B: Encode para sa Messenger URL (No more clipboard permission errors!)
                 const encodedMsg = encodeURIComponent(msg);
                 const messengerLink = `https://m.me/296084720263105?text=${encodedMsg}`;
 
-                alert(`✅ ORDER SAVED (#${orderID})\n\nMapupunta ka na sa Messenger para i-send ang order details. I-click ang OK, Bro!`);
-                
-                // Redirect directly with the message attached
+                alert(`✅ ORDER SAVED (#${orderID})\n\nMapupunta ka na sa Messenger para i-send ang details. Click OK, Bro!`);
                 window.location.href = messengerLink;
 
             } catch (e) { alert("Error saving order: " + e.message); }
