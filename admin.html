@@ -23,7 +23,6 @@
         const db = getFirestore(app);
         const auth = getAuth(app);
 
-        // --- AUTH CHECK ---
         onAuthStateChanged(auth, (user) => {
             document.getElementById('login-overlay').style.display = user ? 'none' : 'flex';
             if(user) loadDashboard();
@@ -38,28 +37,26 @@
 
         window.handleLogout = () => signOut(auth);
 
-        // --- SYNCED INVENTORY LOGIC ---
         window.saveProduct = async () => {
             const name = document.getElementById('p-name').value.trim();
             const price = document.getElementById('p-price').value;
             const qty = document.getElementById('p-qty').value;
             const img = document.getElementById('p-img').value;
-            const gender = document.getElementById('p-gender').value; // Ito ang mag-si-sync sa index filter
+            const gender = document.getElementById('p-gender').value; 
 
-            if(!name || !price || !qty || !img) return alert("Punan lahat ng fields!");
+            if(!name || !price || !qty || !img) return alert("Punan lahat, Bro!");
 
             try {
-                // Gagamit ng 'gender' field para tugma sa index.html
                 await setDoc(doc(db, "inventory", name), {
                     name,
                     price: Number(price),
                     qty: Number(qty),
                     img: img,
-                    gender: gender, // 'male' or 'female'
+                    gender: gender, 
                     clicks: 0,
                     dateAdded: Date.now()
                 });
-                alert("✅ Scent Added & Synced to Website!");
+                alert("✅ Synced: Product is now live!");
                 document.getElementById('p-form').reset();
             } catch (e) { alert("Error: " + e.message); }
         };
@@ -69,44 +66,42 @@
             catch (e) { console.error(e); }
         };
 
-        // --- ORDERS & TRACKING ---
         window.updateOrderStatus = async (id, status) => {
             let updateData = { status: status };
             if (status === "Shipped") {
                 const track = prompt("J&T Tracking Number:");
-                const eta = prompt("Estimated Arrival (e.g., April 5-7):");
+                const eta = prompt("ETA (e.g. April 10):");
                 if(track) updateData.tracking = track;
                 if(eta) updateData.estimatedArrival = eta;
             }
             await updateDoc(doc(db, "orders", id), updateData);
-            alert("Order Status Updated!");
+            alert("Status Updated!");
         };
 
-        // --- REAL-TIME DATA ---
         function loadDashboard() {
-            // Inventory Sync
             onSnapshot(collection(db, "inventory"), (snap) => {
                 const list = document.getElementById('product-list');
                 list.innerHTML = "";
                 snap.forEach(d => {
                     const p = d.data();
-                    const low = p.qty <= 5 ? 'style="color:red; font-weight:bold;"' : '';
+                    const low = p.qty <= 5 ? 'style="color:#e67e22; font-weight:bold;"' : '';
                     list.innerHTML += `
                         <tr>
-                            <td><img src="${p.img}" width="40" style="border-radius:5px;"></td>
-                            <td>${p.name}<br><small style="color:var(--amethyst)">${p.gender.toUpperCase()}</small></td>
+                            <td><img src="${p.img}" class="table-img"></td>
+                            <td><div class="scent-name">${p.name}</div><small class="gender-tag">${p.gender}</small></td>
                             <td ${low}>
-                                <button class="qty-btn" onclick="adjustStock('${p.name}', -1)">-</button>
-                                ${p.qty}
-                                <button class="qty-btn" onclick="adjustStock('${p.name}', 1)">+</button>
+                                <div class="qty-control">
+                                    <button class="qty-btn" onclick="adjustStock('${p.name}', -1)">-</button>
+                                    <span>${p.qty}</span>
+                                    <button class="qty-btn" onclick="adjustStock('${p.name}', 1)">+</button>
+                                </div>
                             </td>
                             <td>${p.clicks || 0}</td>
-                            <td><button onclick="deleteDoc(doc(db, 'inventory', '${p.name}'))" style="color:red; border:none; background:none; cursor:pointer;"><i class="fa-solid fa-trash"></i></button></td>
+                            <td><button class="del-btn" onclick="if(confirm('Delete?')) deleteDoc(doc(db, 'inventory', '${p.name}'))"><i class="fa-solid fa-trash"></i></button></td>
                         </tr>`;
                 });
             });
 
-            // Orders Sync
             onSnapshot(collection(db, "orders"), (snap) => {
                 const oList = document.getElementById('order-list');
                 oList.innerHTML = "";
@@ -121,7 +116,7 @@
                             <td>₱${o.totalAmount}</td>
                             <td><span class="status-pill ${o.status.toLowerCase()}">${o.status}</span></td>
                             <td>
-                                <select onchange="updateOrderStatus('${d.id}', this.value)">
+                                <select class="status-select" onchange="updateOrderStatus('${d.id}', this.value)">
                                     <option value="Pending" ${o.status==='Pending'?'selected':''}>Pending</option>
                                     <option value="Packing" ${o.status==='Packing'?'selected':''}>Packing</option>
                                     <option value="Shipped" ${o.status==='Shipped'?'selected':''}>Shipped</option>
@@ -144,49 +139,71 @@
 
     <style>
         :root { --amethyst: #9b59b2; --bg: #050505; --card: #111; }
-        body { background: var(--bg); color: white; font-family: 'Inter', sans-serif; margin: 0; padding: 20px; }
-        .tab-nav { display: flex; gap: 10px; margin-bottom: 20px; }
-        .tab-btn { background: #222; border: none; color: white; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        * { box-sizing: border-box; }
+        body { background: var(--bg); color: white; font-family: 'Inter', sans-serif; margin: 0; padding: 15px; }
+        
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
+        h2 { margin: 0; font-size: 1.2rem; letter-spacing: 2px; }
+
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+        .stat-box { background: var(--card); padding: 15px; border-radius: 12px; text-align: center; border: 1px solid #222; }
+        .stat-box h2 { color: var(--amethyst); font-size: 1.1rem; margin-top: 5px; }
+
+        .tab-nav { display: flex; gap: 5px; margin-bottom: 15px; }
+        .tab-btn { flex: 1; background: #222; border: none; color: white; padding: 10px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 0.8rem; }
         .tab-btn.active { background: var(--amethyst); }
-        .card { background: var(--card); padding: 20px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #222; }
-        input, select { background: #1a1a1a; border: 1px solid #333; color: white; padding: 12px; margin-bottom: 10px; width: 100%; border-radius: 8px; }
+
+        .card { background: var(--card); padding: 15px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #222; }
+        h3 { font-size: 1rem; margin-top: 0; color: var(--amethyst); }
+
+        input, select { background: #1a1a1a; border: 1px solid #333; color: white; padding: 12px; margin-bottom: 10px; width: 100%; border-radius: 8px; font-size: 0.9rem; }
         .btn-main { background: var(--amethyst); color: white; border: none; padding: 15px; border-radius: 8px; width: 100%; font-weight: bold; cursor: pointer; }
-        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #222; }
-        .qty-btn { background: #333; border: none; color: white; width: 25px; height: 25px; border-radius: 4px; cursor: pointer; }
-        .status-pill { padding: 4px 10px; border-radius: 20px; font-size: 0.7rem; font-weight: bold; }
+
+        /* Responsive Table */
+        .table-container { width: 100%; overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; min-width: 400px; font-size: 0.8rem; }
+        th, td { text-align: left; padding: 10px; border-bottom: 1px solid #222; }
+        .table-img { width: 35px; height: 35px; border-radius: 5px; object-fit: cover; }
+        .qty-control { display: flex; align-items: center; gap: 8px; }
+        .qty-btn { background: #333; border: none; color: white; width: 24px; height: 24px; border-radius: 4px; cursor: pointer; }
+        
+        .status-pill { padding: 4px 8px; border-radius: 12px; font-size: 0.65rem; font-weight: bold; text-transform: uppercase; }
         .status-pill.pending { background: #e67e22; }
         .status-pill.shipped { background: #9b59b2; }
         .status-pill.delivered { background: #2ecc71; }
-        #login-overlay { position: fixed; inset: 0; background: black; z-index: 9999; display: flex; align-items: center; justify-content: center; }
+        
+        .del-btn { color: #e74c3c; font-size: 1rem; background: none; border: none; cursor: pointer; }
+        .gender-tag { color: var(--amethyst); text-transform: uppercase; font-size: 0.6rem; }
+        
+        #login-overlay { position: fixed; inset: 0; background: black; z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 20px; }
+        
+        @media (max-width: 600px) {
+            body { padding: 10px; }
+            .stats-grid { grid-template-columns: 1fr; }
+            .logo-text { font-size: 1rem; }
+        }
     </style>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
 
     <div id="login-overlay">
-        <div class="card" style="width: 320px; text-align: center;">
-            <h2 style="color:var(--amethyst)">NYXEN ADMIN</h2>
-            <input type="email" id="admin-email" placeholder="Admin Email">
+        <div class="card" style="width: 100%; max-width: 320px; text-align: center;">
+            <h2 style="color:var(--amethyst); margin-bottom: 20px;">NYXEN ADMIN</h2>
+            <input type="email" id="admin-email" placeholder="Email">
             <input type="password" id="admin-pass" placeholder="Password">
-            <button class="btn-main" onclick="handleLogin()">ACCESS DASHBOARD</button>
+            <button class="btn-main" onclick="handleLogin()">ACCESS EMPIRE</button>
         </div>
     </div>
 
-    <div style="display:flex; justify-content: space-between; align-items: center;">
-        <h2>NYXEN <span style="color:var(--amethyst)">MASTER EMPIRE</span></h2>
-        <button onclick="handleLogout()" style="background:none; border:1px solid #444; color:#888; padding:5px 10px; border-radius:5px; cursor:pointer;">Logout</button>
+    <div class="header">
+        <h2>NYXEN <span style="color:var(--amethyst)">ADMIN</span></h2>
+        <button onclick="handleLogout()" style="background:none; border:1px solid #444; color:#888; padding:5px 12px; border-radius:5px; cursor:pointer; font-size: 0.8rem;">Logout</button>
     </div>
 
-    <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 15px; margin: 20px 0;">
-        <div class="card" style="text-align: center;">
-            <small>Total Revenue</small>
-            <h2 id="total-rev" style="color:var(--amethyst); margin: 5px 0;">₱0</h2>
-        </div>
-        <div class="card" style="text-align: center;">
-            <small>Customer Engagement</small>
-            <h2 id="stat-clicks" style="margin: 5px 0;">0 Clicks</h2>
-        </div>
+    <div class="stats-grid">
+        <div class="stat-box"><small>Total Revenue</small><h2 id="total-rev">₱0</h2></div>
+        <div class="stat-box"><small>Total Clicks</small><h2 id="stat-clicks">0</h2></div>
     </div>
 
     <div class="tab-nav">
@@ -196,42 +213,44 @@
 
     <div id="inventory-tab" class="tab-content">
         <div class="card">
-            <h3>Add New Scent</h3>
+            <h3>Add Scent</h3>
             <form id="p-form" onsubmit="event.preventDefault()">
-                <input type="text" id="p-name" placeholder="Scent Name (e.g. Dior Sauvage)">
-                <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                    <input type="number" id="p-price" placeholder="Price (₱)">
-                    <input type="number" id="p-qty" placeholder="Stocks (Qty)">
+                <input type="text" id="p-name" placeholder="Name (e.g. Dior Sauvage)">
+                <div style="display:flex; gap:10px;">
+                    <input type="number" id="p-price" placeholder="Price">
+                    <input type="number" id="p-qty" placeholder="Qty">
                 </div>
-                <input type="text" id="p-img" placeholder="PostImages Direct Link URL">
+                <input type="text" id="p-img" placeholder="Image URL">
                 <select id="p-gender">
-                    <option value="male">For Men (Male)</option>
-                    <option value="female">For Women (Female)</option>
+                    <option value="male">MALE</option>
+                    <option value="female">FEMALE</option>
                 </select>
-                <button class="btn-main" onclick="saveProduct()">SYNC TO WEBSITE</button>
+                <button class="btn-main" onclick="saveProduct()">SYNC TO INDEX</button>
             </form>
         </div>
 
         <div class="card">
-            <h3>Current Stock List</h3>
-            <table>
-                <thead>
-                    <tr><th>Img</th><th>Scent</th><th>Stocks</th><th>Clicks</th><th>Action</th></tr>
-                </thead>
-                <tbody id="product-list"></tbody>
-            </table>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr><th>Img</th><th>Scent</th><th>Qty</th><th>Hits</th><th></th></tr>
+                    </thead>
+                    <tbody id="product-list"></tbody>
+                </table>
+            </div>
         </div>
     </div>
 
     <div id="orders-tab" class="tab-content" style="display: none;">
         <div class="card">
-            <h3>Recent Transactions</h3>
-            <table>
-                <thead>
-                    <tr><th>Order ID</th><th>Customer</th><th>Total</th><th>Status</th><th>Action</th></tr>
-                </thead>
-                <tbody id="order-list"></tbody>
-            </table>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr><th>ID</th><th>Customer</th><th>Total</th><th>Status</th><th>Action</th></tr>
+                    </thead>
+                    <tbody id="order-list"></tbody>
+                </table>
+            </div>
         </div>
     </div>
 
