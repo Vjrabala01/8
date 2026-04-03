@@ -29,6 +29,7 @@
 
         window.bag = [];
         let currentFilter = 'all';
+        let rawInventory = []; // Dito itatago ang lahat ng data mula sa Firebase
 
         window.notify = (msg) => {
             const toast = document.getElementById('toast');
@@ -37,27 +38,42 @@
             setTimeout(() => toast.classList.remove('show'), 3000);
         };
 
-        // Filter Function
+        // Filter Function - Ito ang mag-a-update ng view
         window.setFilter = (gender) => {
             currentFilter = gender;
+            // Update UI ng buttons
             const btns = document.querySelectorAll('.filter-btn');
             btns.forEach(b => b.classList.remove('active'));
             event.target.classList.add('active');
+            // Re-render gamit ang bagong filter
             renderProducts();
         };
 
-        let rawInventory = [];
+        // Real-time listener mula sa Firebase
         onSnapshot(collection(db, "inventory"), (snap) => {
             rawInventory = [];
-            snap.forEach(doc => rawInventory.push(doc.data()));
+            snap.forEach(doc => {
+                const data = doc.data();
+                rawInventory.push(data);
+            });
             renderProducts();
         });
 
+        // Main Render Engine
         function renderProducts() {
             const grid = document.getElementById('product-grid');
             grid.innerHTML = "";
-            const filtered = currentFilter === 'all' ? rawInventory : rawInventory.filter(p => p.gender === currentFilter);
             
+            // Filter logic: tinitingnan kung 'all', 'male', o 'female'
+            const filtered = currentFilter === 'all' 
+                ? rawInventory 
+                : rawInventory.filter(p => p.gender && p.gender.toLowerCase() === currentFilter.toLowerCase());
+            
+            if (filtered.length === 0) {
+                grid.innerHTML = `<p style="grid-column:1/-1; color:#555; margin-top:50px;">No scents found in this category.</p>`;
+                return;
+            }
+
             filtered.forEach(p => {
                 const isOut = p.qty <= 0;
                 grid.innerHTML += `
@@ -131,29 +147,28 @@
         :root { --amethyst: #9b59b2; --bg: #050505; --card: #121212; --orange: #e67e22; --green: #2ecc71; }
         body { background: var(--bg); color: #fff; font-family: 'Inter', sans-serif; margin: 0; padding: 0; user-select: none; }
         
-        header { text-align: center; padding: 30px 20px 10px; background: linear-gradient(to bottom, #111, #050505); }
-        .logo { font-size: 2.5rem; font-weight: 200; letter-spacing: 10px; margin-bottom: 5px; }
+        header { text-align: center; padding: 30px 20px 10px; background: linear-gradient(to bottom, #111, #050505); border-bottom: 1px solid #111; }
+        .logo { font-size: 2.5rem; font-weight: 200; letter-spacing: 10px; margin-bottom: 5px; text-transform: uppercase; }
         
-        /* Filter Styles */
-        .filter-nav { display: flex; justify-content: center; gap: 15px; margin: 20px 0; }
-        .filter-btn { background: none; border: 1px solid #333; color: #666; padding: 8px 20px; border-radius: 50px; font-size: 0.65rem; letter-spacing: 2px; cursor: pointer; transition: 0.3s; }
+        .filter-nav { display: flex; justify-content: center; gap: 10px; margin: 20px 0; padding: 0 10px; }
+        .filter-btn { background: none; border: 1px solid #222; color: #555; padding: 10px 15px; border-radius: 5px; font-size: 0.6rem; letter-spacing: 2px; cursor: pointer; transition: 0.3s; font-weight: bold; }
         .filter-btn.active { border-color: var(--amethyst); color: #fff; background: rgba(155, 89, 182, 0.1); }
 
-        .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 25px; max-width: 1200px; margin: 0 auto; padding: 20px; }
+        .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 25px; max-width: 1200px; margin: 0 auto; padding: 20px; text-align: center; }
         .product-card { background: var(--card); border: 1px solid #222; position: relative; border-radius: 4px; overflow: hidden; transition: 0.4s ease; }
         .portrait-box { aspect-ratio: 2/3; overflow: hidden; background: #000; position: relative; }
         .portrait-box img { width: 100%; height: 100%; object-fit: cover; filter: brightness(0.8); }
-        .inner-promo { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(155, 89, 182, 0.85); color: white; font-size: 0.55rem; font-weight: 900; padding: 8px; text-align: center; }
+        .inner-promo { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(155, 89, 182, 0.85); color: white; font-size: 0.55rem; font-weight: 900; padding: 8px; text-align: center; letter-spacing: 1px; }
         
         .price-label { position: absolute; top: 15px; right: 0; background: var(--amethyst); padding: 6px 18px; font-weight: bold; z-index: 5; font-size: 0.9rem; clip-path: polygon(15% 0, 100% 0, 100% 100%, 0% 100%); }
-        .info { padding: 20px; text-align: center; }
-        .info h3 { font-size: 0.85rem; letter-spacing: 1px; margin: 0 0 5px; }
-        .add-btn { background: #fff; color: #000; border: none; padding: 12px; width: 100%; font-weight: bold; cursor: pointer; margin-top: 10px; font-size: 0.7rem; }
+        .info { padding: 20px; }
+        .info h3 { font-size: 0.85rem; letter-spacing: 1px; margin: 0 0 5px; text-transform: uppercase; }
+        .add-btn { background: #fff; color: #000; border: none; padding: 12px; width: 100%; font-weight: bold; cursor: pointer; margin-top: 10px; font-size: 0.7rem; letter-spacing: 1px; }
         
         .cart-btn { position: fixed; bottom: 25px; right: 25px; background: var(--amethyst); padding: 16px 24px; border-radius: 50px; border: none; color: #fff; font-weight: bold; z-index: 1000; cursor: pointer; box-shadow: 0 8px 25px rgba(155, 89, 182, 0.4); }
         .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); display: none; align-items: center; justify-content: center; z-index: 2000; padding: 20px; }
         .modal { background: #111; padding: 30px 20px; border-radius: 20px; border: 1px solid rgba(155, 89, 182, 0.3); width: 100%; max-width: 380px; text-align: center; max-height: 90vh; overflow-y: auto; }
-        input, textarea { background: #181818; border: 1px solid #333; color: #fff; width: 100%; padding: 12px; border-radius: 10px; margin-bottom: 10px; outline: none; }
+        input, textarea { background: #181818; border: 1px solid #333; color: #fff; width: 100%; padding: 12px; border-radius: 10px; margin-bottom: 10px; outline: none; font-family: inherit; }
         
         #shipping-msg { font-size: 0.65rem; margin-bottom: 15px; font-weight: bold; padding: 10px; border-radius: 8px; }
         .msg-orange { background: var(--orange); color: #fff; }
@@ -165,13 +180,15 @@
         .shipping-breakdown { font-size: 0.7rem; color: #888; border-top: 1px solid #222; margin-top: 10px; padding-top: 10px; text-align: left; }
         .ship-line { display: flex; justify-content: space-between; margin-bottom: 4px; }
 
-        #toast { position: fixed; top: -100px; left: 50%; transform: translateX(-50%); background: #111; border: 1px solid var(--amethyst); color: #fff; padding: 10px 20px; border-radius: 50px; z-index: 5000; transition: 0.5s; }
+        #toast { position: fixed; top: -100px; left: 50%; transform: translateX(-50%); background: #111; border: 1px solid var(--amethyst); color: #fff; padding: 10px 20px; border-radius: 50px; z-index: 5000; transition: 0.5s; font-size: 0.8rem; }
         #toast.show { top: 20px; }
         @media (max-width: 600px) { .product-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; } .logo { font-size: 1.8rem; } }
     </style>
 </head>
 <body>
     <div id="toast">Ready</div>
+    <div id="local-banner" style="display:none; background:var(--amethyst); text-align:center; padding:8px; font-size:0.6rem; font-weight:bold;">🚚 NEGROS QUICK DELIVERY IS ACTIVE!</div>
+    
     <header>
         <div class="logo">NYXEN</div>
         <div class="filter-nav">
