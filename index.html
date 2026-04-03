@@ -133,10 +133,31 @@
             }
         });
 
-        // --- APP REGISTRATION ---
+        // --- APP LOGIC & POPUP ---
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('sw.js').then(() => console.log("NYXEN App Active"));
         }
+
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+                if (!isStandalone) {
+                    document.getElementById('app-install-popup').style.display = 'block';
+                }
+            }, 3000);
+        });
+
+        window.closeAppPopup = () => document.getElementById('app-install-popup').style.display = 'none';
+
+        window.showInstallGuide = () => {
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+            if (isIOS) {
+                document.getElementById('iphone-guide').style.display = 'flex';
+                closeAppPopup();
+            } else {
+                alert("Pindutin ang tatlong tuldok (⋮) sa taas at i-click ang 'Install App' o 'Add to Home Screen'!");
+            }
+        };
     </script>
 
     <style>
@@ -154,17 +175,54 @@
         .price-label { position: absolute; top: 15px; right: 0; background: var(--amethyst); padding: 5px 15px; font-weight: bold; z-index: 5; }
         .info { padding: 20px; text-align: center; }
         .add-btn { background: #fff; color: #000; border: none; padding: 12px; width: 100%; font-weight: bold; cursor: pointer; margin-top: 15px; }
-        .cart-btn { position: fixed; bottom: 25px; right: 25px; background: var(--amethyst); padding: 15px 20px; border-radius: 50px; border: none; color: #fff; font-weight: bold; z-index: 1000; cursor: pointer; }
+        .cart-btn { position: fixed; bottom: 25px; right: 25px; background: var(--amethyst); padding: 15px 20px; border-radius: 50px; border: none; color: #fff; font-weight: bold; z-index: 1000; cursor: pointer; box-shadow: 0 10px 30px rgba(155, 89, 182, 0.5); }
         .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); display: none; align-items: center; justify-content: center; z-index: 2000; padding: 20px; }
         .modal { background: #111; padding: 25px; border-radius: 15px; border: 1px solid var(--amethyst); width: 100%; max-width: 380px; text-align: center; }
-        input, textarea { background: #1a1a1a; border: 1px solid #333; color: #fff; width: 100%; padding: 12px; border-radius: 8px; margin-bottom: 10px; box-sizing: border-box; }
+        input, textarea { background: #1a1a1a; border: 1px solid #333; color: #fff; width: 100%; padding: 12px; border-radius: 8px; margin-bottom: 10px; box-sizing: border-box; font-family: inherit; }
         .checkout-btn { background: var(--amethyst); color: #fff; border: none; padding: 15px; width: 100%; border-radius: 8px; font-weight: bold; cursor: pointer; }
+
+        /* App Popup Styling */
+        .app-popup { position: fixed; bottom: 90px; left: 20px; right: 20px; background: #1a1a1a; border: 1px solid var(--amethyst); border-radius: 15px; padding: 12px; display: none; z-index: 999; box-shadow: 0 10px 30px rgba(0,0,0,0.8); animation: slideUp 0.5s ease-out; }
+        .app-popup-content { display: flex; align-items: center; gap: 12px; position: relative; }
+        .app-popup-text { flex-grow: 1; text-align: left; }
+        .app-popup-text strong { font-size: 0.8rem; color: #fff; display: block; }
+        .app-popup-text p { font-size: 0.6rem; color: #888; margin: 2px 0 0; }
+        .install-btn-small { background: var(--amethyst); color: white; border: none; padding: 8px 15px; border-radius: 8px; font-size: 0.7rem; font-weight: bold; cursor: pointer; }
+        .close-popup { position: absolute; top: -15px; right: -5px; color: #888; font-size: 1.2rem; cursor: pointer; padding: 5px; }
+        @keyframes slideUp { from { transform: translateY(100px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
         @media (max-width: 600px) { .product-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; } .logo { font-size: 1.8rem; } }
     </style>
 </head>
 <body>
     <div id="local-banner">🚚 NEGROS QUICK DELIVERY IS ACTIVE!</div>
+    
+    <div id="app-install-popup" class="app-popup">
+        <div class="app-popup-content">
+            <img src="https://i.postimg.cc/8C6m8y8y/nyxen-logo-512.png" width="45" height="45" style="border-radius:10px;">
+            <div class="app-popup-text">
+                <strong>Install NYXEN App</strong>
+                <p>Add to home screen for elite experience!</p>
+            </div>
+            <button onclick="showInstallGuide()" class="install-btn-small">INSTALL</button>
+            <span class="close-popup" onclick="closeAppPopup()">×</span>
+        </div>
+    </div>
+
+    <div id="iphone-guide" class="overlay" onclick="this.style.display='none'">
+        <div class="modal">
+            <h3 style="color:var(--amethyst)">HOW TO INSTALL</h3>
+            <p style="font-size:0.8rem; line-height:1.6; text-align: left;">
+                1. Tap the <strong>Share</strong> icon (square with arrow up) <br>
+                2. Scroll down and tap <strong>'Add to Home Screen'</strong> <br>
+                3. Tap <strong>'Add'</strong> on the top right.
+            </p>
+            <button class="checkout-btn">GOT IT, BRO!</button>
+        </div>
+    </div>
+
     <div id="promo-overlay" class="overlay" onclick="this.style.display='none'"><div class="modal" style="padding:0; border:none; background:transparent;"><img id="promo-popup-img" src="" style="width:100%; border-radius:15px;"></div></div>
+    
     <div id="cart-overlay" class="overlay">
         <div class="modal">
             <h3 style="color:var(--amethyst)">YOUR BAG</h3>
@@ -175,10 +233,13 @@
             <p onclick="document.getElementById('cart-overlay').style.display='none'" style="cursor:pointer; margin-top:15px; font-size:0.7rem; color:#888;">Back to Shop</p>
         </div>
     </div>
+
     <button class="cart-btn" onclick="document.getElementById('cart-overlay').style.display='flex'">BAG (<span id="cart-count">0</span>)</button>
     <button onclick="trackOrder()" style="position:fixed; bottom:25px; left:25px; background:rgba(255,255,255,0.05); border:1px solid #222; color:#555; border-radius:50px; padding:8px 15px; font-size:0.6rem; cursor:pointer; z-index:1000;">TRACK ORDER</button>
+    
     <header><div class="logo">NYXEN</div><div class="tagline">Premium Inspired Fragrance</div></header>
     <main id="product-grid" class="product-grid"></main>
+
     <script>
         function updateCartUI() {
             document.getElementById('cart-count').innerText = window.bag.length;
