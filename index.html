@@ -28,6 +28,7 @@
         const db = getFirestore(app);
 
         window.bag = [];
+        let currentFilter = 'all';
 
         window.notify = (msg) => {
             const toast = document.getElementById('toast');
@@ -36,22 +37,28 @@
             setTimeout(() => toast.classList.remove('show'), 3000);
         };
 
-        onSnapshot(doc(db, "settings", "flash-sale"), (d) => {
-            if(d.exists()) {
-                const s = d.data();
-                if(s.active) {
-                    document.getElementById('promo-popup-img').src = s.promoImg;
-                    document.getElementById('promo-overlay').style.display = 'flex';
-                    if(s.localQuick) document.getElementById('local-banner').style.display = 'block';
-                }
-            }
+        // Filter Function
+        window.setFilter = (gender) => {
+            currentFilter = gender;
+            const btns = document.querySelectorAll('.filter-btn');
+            btns.forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+            renderProducts();
+        };
+
+        let rawInventory = [];
+        onSnapshot(collection(db, "inventory"), (snap) => {
+            rawInventory = [];
+            snap.forEach(doc => rawInventory.push(doc.data()));
+            renderProducts();
         });
 
-        onSnapshot(collection(db, "inventory"), (snap) => {
+        function renderProducts() {
             const grid = document.getElementById('product-grid');
             grid.innerHTML = "";
-            snap.forEach(doc => {
-                const p = doc.data();
+            const filtered = currentFilter === 'all' ? rawInventory : rawInventory.filter(p => p.gender === currentFilter);
+            
+            filtered.forEach(p => {
                 const isOut = p.qty <= 0;
                 grid.innerHTML += `
                     <div class="product-card ${isOut ? 'out' : ''}">
@@ -69,31 +76,14 @@
                         </div>
                     </div>`;
             });
-        });
+        }
 
-        window.openTracker = () => document.getElementById('tracker-overlay').style.display = 'flex';
-        
-        window.trackOrder = async () => {
-            const inputID = document.getElementById('track-input').value;
-            if(!inputID) return window.notify("Please enter your Order ID");
-            const cleanInput = inputID.trim().toUpperCase();
-            try {
-                const querySnapshot = await getDocs(collection(db, "orders"));
-                let found = false;
-                querySnapshot.forEach((doc) => {
-                    if (doc.id.toUpperCase().endsWith(cleanInput)) {
-                        const data = doc.data();
-                        document.getElementById('tracker-result').innerHTML = `
-                            <div style="text-align:left; font-size:0.8rem; margin-top:20px; border-top:1px solid #222; padding-top:20px;">
-                                <p><strong style="color:#888">Status:</strong> <span style="color:var(--amethyst); font-weight:bold;">${data.status.toUpperCase()}</span></p>
-                                <p><strong style="color:#888">ETA:</strong> ${data.estimatedArrival || 'TBA'}</p>
-                                <p><strong style="color:#888">Tracking:</strong> ${data.tracking || 'In Progress'}</p>
-                            </div>`;
-                        found = true;
-                    }
-                });
-                if (!found) window.notify("Order ID not found.");
-            } catch (e) { window.notify("Service unavailable."); }
+        window.calculateShipping = (address) => {
+            if (window.bag.length >= 3) return { fee: 0, loc: "FREE SHIPPING" };
+            const clean = address.toLowerCase();
+            if (clean.includes("bacolod")) return { fee: 50, loc: "Bacolod City" };
+            if (clean.includes("negros")) return { fee: 110, loc: "Within Negros" };
+            return { fee: 125, loc: "Outside Negros" };
         };
 
         window.addToBag = async (name, price, img, btn) => {
@@ -116,126 +106,92 @@
             const name = document.getElementById('c-name').value;
             const phone = document.getElementById('c-phone').value;
             const addr = document.getElementById('c-addr').value;
-            
             if(!name || !phone || !addr || window.bag.length === 0) return window.notify("Complete details required.");
             
+            const itemsTotal = window.bag.reduce((s, i) => s + i.price, 0);
+            const shipDetails = calculateShipping(addr);
+            const finalTotal = itemsTotal + shipDetails.fee;
+
             try {
-                const itemsTotal = window.bag.reduce((s, i) => s + i.price, 0);
-                const shipDetails = calculateShipping(addr);
-                const finalTotal = itemsTotal + shipDetails.fee;
-
                 const docRef = await addDoc(collection(db, "orders"), {
-                    customerName: name, 
-                    phoneNumber: phone,
-                    address: addr,
-                    items: window.bag, 
-                    totalAmount: finalTotal,
-                    status: "Pending", 
-                    date: Date.now()
+                    customerName: name, phoneNumber: phone, address: addr,
+                    items: window.bag, totalAmount: finalTotal, status: "Pending", date: Date.now()
                 });
-
                 const orderID = docRef.id.slice(-5).toUpperCase();
                 let msg = `NYXEN PRIVATE COLLECTION ORDER #${orderID}\n\n`;
                 window.bag.forEach(i => msg += `• ${i.name}\n`);
-                msg += `\nSubtotal: ₱${itemsTotal}`;
-                msg += `\nShipping: ₱${shipDetails.fee} (${shipDetails.loc})`;
-                msg += `\nTOTAL: ₱${finalTotal}`;
+                msg += `\nSubtotal: ₱${itemsTotal}\nShipping: ₱${shipDetails.fee} (${shipDetails.loc})\nTOTAL: ₱${finalTotal}`;
                 msg += `\n\nRecipient: ${name}\nPhone: ${phone}\nAddress: ${addr}`;
-                
                 window.location.href = `https://m.me/296084720263105?text=${encodeURIComponent(msg)}`;
             } catch (e) { window.notify("Order failed."); }
-        };
-
-        // Helper for shipping calculation
-        window.calculateShipping = (address) => {
-            if (window.bag.length >= 3) return { fee: 0, loc: "FREE SHIPPING" };
-            const clean = address.toLowerCase();
-            if (clean.includes("bacolod")) return { fee: 50, loc: "Bacolod City" };
-            if (clean.includes("negros")) return { fee: 110, loc: "Within Negros" };
-            return { fee: 125, loc: "Outside Negros" };
-        };
-
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js?v=1');
-        }
-
-        window.addEventListener('load', () => {
-            setTimeout(() => {
-                const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
-                if (!isStandalone) document.getElementById('app-install-popup').style.display = 'block';
-            }, 3000);
-        });
-
-        window.closeAppPopup = () => document.getElementById('app-install-popup').style.display = 'none';
-
-        window.showInstallGuide = () => {
-            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-            if (isIOS) {
-                document.getElementById('iphone-guide').style.display = 'flex';
-                closeAppPopup();
-            } else {
-                window.notify("Open browser menu and select 'Install App'");
-            }
         };
     </script>
 
     <style>
         :root { --amethyst: #9b59b2; --bg: #050505; --card: #121212; --orange: #e67e22; --green: #2ecc71; }
         body { background: var(--bg); color: #fff; font-family: 'Inter', sans-serif; margin: 0; padding: 0; user-select: none; }
-        header { text-align: center; padding: 40px 20px; background: linear-gradient(to bottom, #111, #050505); }
-        .logo { font-size: 3rem; font-weight: 200; letter-spacing: 12px; margin-bottom: 5px; text-shadow: 0 0 20px rgba(155, 89, 182, 0.3); }
-        .tagline { color: var(--amethyst); font-size: 0.65rem; letter-spacing: 4px; text-transform: uppercase; cursor: pointer; opacity: 0.8; }
-        #local-banner { display: none; background: var(--amethyst); text-align: center; padding: 8px; font-size: 0.65rem; font-weight: bold; position: sticky; top: 0; z-index: 100; box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
-        .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 25px; max-width: 1200px; margin: 0 auto; padding: 20px; }
-        .product-card { background: var(--card); border: 1px solid #222; position: relative; transition: 0.4s ease; overflow: hidden; border-radius: 4px; }
-        .portrait-box { aspect-ratio: 2/3; overflow: hidden; background: #000; position: relative; }
-        .portrait-box img { width: 100%; height: 100%; object-fit: cover; filter: brightness(0.8); transition: 0.5s; }
-        .inner-promo { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(155, 89, 182, 0.85); color: white; font-size: 0.55rem; font-weight: 900; padding: 8px; text-align: center; letter-spacing: 1px; line-height: 1.4; }
-        .price-label { position: absolute; top: 15px; right: 0; background: var(--amethyst); padding: 6px 18px; font-weight: bold; z-index: 5; font-size: 0.9rem; clip-path: polygon(15% 0, 100% 0, 100% 100%, 0% 100%); }
-        .info { padding: 25px; text-align: center; }
-        .info h3 { font-size: 0.9rem; letter-spacing: 2px; text-transform: uppercase; margin: 0 0 8px 0; }
-        .add-btn { background: #fff; color: #000; border: none; padding: 14px; width: 100%; font-weight: bold; cursor: pointer; margin-top: 15px; font-size: 0.75rem; letter-spacing: 1px; transition: 0.3s; }
-        .cart-btn { position: fixed; bottom: 25px; right: 25px; background: var(--amethyst); padding: 16px 24px; border-radius: 50px; border: none; color: #fff; font-weight: bold; z-index: 1000; cursor: pointer; box-shadow: 0 8px 25px rgba(155, 89, 182, 0.4); }
-        .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); display: none; align-items: center; justify-content: center; z-index: 2000; padding: 20px; animation: fadeIn 0.3s ease; }
-        .modal { background: #111; padding: 35px 25px; border-radius: 20px; border: 1px solid rgba(155, 89, 182, 0.3); width: 100%; max-width: 380px; text-align: center; position: relative; max-height: 90vh; overflow-y: auto; }
-        input, textarea { background: #181818; border: 1px solid #333; color: #fff; width: 100%; padding: 14px; border-radius: 12px; margin-bottom: 15px; box-sizing: border-box; font-family: inherit; outline: none; }
-        .checkout-btn { background: var(--amethyst); color: #fff; border: none; padding: 16px; width: 100%; border-radius: 12px; font-weight: bold; cursor: pointer; letter-spacing: 1px; }
-        #shipping-msg { font-size: 0.65rem; margin-bottom: 15px; font-weight: bold; letter-spacing: 1px; padding: 10px; border-radius: 8px; }
-        .msg-orange { color: #fff; background: var(--orange); }
-        .msg-green { color: #fff; background: var(--green); }
-        .msg-default { color: #aaa; border: 1px dashed #333; }
-        .qty-controls { display: flex; gap: 10px; align-items: center; }
-        .qty-btn { background: #222; color: #fff; border: 1px solid #444; width: 26px; height: 26px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; }
         
-        /* Shipping Breakdown UI */
-        .shipping-breakdown { font-size: 0.7rem; color: #888; border-top: 1px solid #222; margin-top: 10px; padding-top: 10px; text-align: left; }
-        .ship-line { display: flex; justify-content: space-between; margin-bottom: 5px; }
+        header { text-align: center; padding: 30px 20px 10px; background: linear-gradient(to bottom, #111, #050505); }
+        .logo { font-size: 2.5rem; font-weight: 200; letter-spacing: 10px; margin-bottom: 5px; }
+        
+        /* Filter Styles */
+        .filter-nav { display: flex; justify-content: center; gap: 15px; margin: 20px 0; }
+        .filter-btn { background: none; border: 1px solid #333; color: #666; padding: 8px 20px; border-radius: 50px; font-size: 0.65rem; letter-spacing: 2px; cursor: pointer; transition: 0.3s; }
+        .filter-btn.active { border-color: var(--amethyst); color: #fff; background: rgba(155, 89, 182, 0.1); }
 
-        #toast { position: fixed; top: -100px; left: 50%; transform: translateX(-50%); background: rgba(20, 20, 20, 0.95); border: 1px solid var(--amethyst); color: #fff; padding: 12px 25px; border-radius: 50px; font-size: 0.8rem; z-index: 5000; transition: 0.5s cubic-bezier(0.16, 1, 0.3, 1); backdrop-filter: blur(10px); box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-        #toast.show { top: 30px; }
-        .app-popup { position: fixed; bottom: 100px; left: 20px; right: 20px; background: rgba(20, 20, 20, 0.95); backdrop-filter: blur(15px); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; padding: 15px; display: none; z-index: 999; animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes slideUp { from { transform: translateY(50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        @media (max-width: 600px) { .product-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; } .logo { font-size: 2rem; } }
+        .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 25px; max-width: 1200px; margin: 0 auto; padding: 20px; }
+        .product-card { background: var(--card); border: 1px solid #222; position: relative; border-radius: 4px; overflow: hidden; transition: 0.4s ease; }
+        .portrait-box { aspect-ratio: 2/3; overflow: hidden; background: #000; position: relative; }
+        .portrait-box img { width: 100%; height: 100%; object-fit: cover; filter: brightness(0.8); }
+        .inner-promo { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(155, 89, 182, 0.85); color: white; font-size: 0.55rem; font-weight: 900; padding: 8px; text-align: center; }
+        
+        .price-label { position: absolute; top: 15px; right: 0; background: var(--amethyst); padding: 6px 18px; font-weight: bold; z-index: 5; font-size: 0.9rem; clip-path: polygon(15% 0, 100% 0, 100% 100%, 0% 100%); }
+        .info { padding: 20px; text-align: center; }
+        .info h3 { font-size: 0.85rem; letter-spacing: 1px; margin: 0 0 5px; }
+        .add-btn { background: #fff; color: #000; border: none; padding: 12px; width: 100%; font-weight: bold; cursor: pointer; margin-top: 10px; font-size: 0.7rem; }
+        
+        .cart-btn { position: fixed; bottom: 25px; right: 25px; background: var(--amethyst); padding: 16px 24px; border-radius: 50px; border: none; color: #fff; font-weight: bold; z-index: 1000; cursor: pointer; box-shadow: 0 8px 25px rgba(155, 89, 182, 0.4); }
+        .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); display: none; align-items: center; justify-content: center; z-index: 2000; padding: 20px; }
+        .modal { background: #111; padding: 30px 20px; border-radius: 20px; border: 1px solid rgba(155, 89, 182, 0.3); width: 100%; max-width: 380px; text-align: center; max-height: 90vh; overflow-y: auto; }
+        input, textarea { background: #181818; border: 1px solid #333; color: #fff; width: 100%; padding: 12px; border-radius: 10px; margin-bottom: 10px; outline: none; }
+        
+        #shipping-msg { font-size: 0.65rem; margin-bottom: 15px; font-weight: bold; padding: 10px; border-radius: 8px; }
+        .msg-orange { background: var(--orange); color: #fff; }
+        .msg-green { background: var(--green); color: #fff; }
+        .msg-default { color: #aaa; border: 1px dashed #333; }
+
+        .qty-controls { display: flex; gap: 8px; align-items: center; }
+        .qty-btn { background: #222; color: #fff; border: 1px solid #444; width: 24px; height: 24px; border-radius: 4px; cursor: pointer; }
+        .shipping-breakdown { font-size: 0.7rem; color: #888; border-top: 1px solid #222; margin-top: 10px; padding-top: 10px; text-align: left; }
+        .ship-line { display: flex; justify-content: space-between; margin-bottom: 4px; }
+
+        #toast { position: fixed; top: -100px; left: 50%; transform: translateX(-50%); background: #111; border: 1px solid var(--amethyst); color: #fff; padding: 10px 20px; border-radius: 50px; z-index: 5000; transition: 0.5s; }
+        #toast.show { top: 20px; }
+        @media (max-width: 600px) { .product-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; } .logo { font-size: 1.8rem; } }
     </style>
 </head>
 <body>
     <div id="toast">Ready</div>
-    <div id="local-banner">🚚 NEGROS QUICK DELIVERY IS ACTIVE!</div>
-    
+    <header>
+        <div class="logo">NYXEN</div>
+        <div class="filter-nav">
+            <button class="filter-btn active" onclick="setFilter('all')">ALL SCENTS</button>
+            <button class="filter-btn" onclick="setFilter('male')">MALE</button>
+            <button class="filter-btn" onclick="setFilter('female')">FEMALE</button>
+        </div>
+    </header>
+
     <div id="cart-overlay" class="overlay">
         <div class="modal">
-            <h3 style="color:var(--amethyst); letter-spacing: 3px;">MY COLLECTIONS</h3>
+            <h3 style="color:var(--amethyst); letter-spacing: 2px;">MY COLLECTIONS</h3>
             <div id="shipping-msg" class="msg-default">COLLECT TOTAL OF 3 BOTTLES FOR FREE SHIPPING</div>
-
             <div id="cart-items" style="margin:15px 0; text-align:left; font-size:0.8rem; max-height: 150px; overflow-y: auto;"></div>
-            
-            <div id="cart-total" style="font-weight:bold; font-size: 1.1rem; letter-spacing: 1px; text-align: right;">ITEMS: ₱0</div>
+            <div id="items-total-ui" style="font-weight:bold; font-size: 1rem; text-align: right;">ITEMS: ₱0</div>
             
             <div class="shipping-breakdown" id="ship-ui" style="display:none;">
                 <div class="ship-line"><span>Shipping Fee:</span> <span id="ship-cost" style="color:var(--amethyst)">₱0</span></div>
-                <div class="ship-line" style="font-size:0.6rem; color:#555;"><span id="ship-loc">Calculating...</span></div>
-                <div class="ship-line" style="font-size:1.3rem; color:#fff; font-weight:900; margin-top:10px; border-top:1px solid #333; padding-top:10px;">
+                <div class="ship-line" style="font-size:0.6rem;"><span id="ship-loc">Calculating...</span></div>
+                <div class="ship-line" style="font-size:1.1rem; color:#fff; font-weight:900; margin-top:8px; border-top:1px solid #333; padding-top:8px;">
                     <span>GRAND TOTAL:</span> <span id="grand-total">₱0</span>
                 </div>
             </div>
@@ -243,18 +199,16 @@
             <br>
             <input type="text" id="c-name" placeholder="Full Name">
             <input type="tel" id="c-phone" placeholder="Phone Number">
-            <textarea id="c-addr" placeholder="Detailed Address (City/Province)" rows="2" oninput="updateCartUI()"></textarea>
-            
+            <textarea id="c-addr" placeholder="Address (include City/Province)" rows="2" oninput="updateCartUI()"></textarea>
             <button class="checkout-btn" onclick="submitOrder()">CHECKOUT VIA MESSENGER</button>
-            <p onclick="document.getElementById('cart-overlay').style.display='none'" style="cursor:pointer; margin-top:20px; font-size:0.65rem; color:#666; letter-spacing: 1px;">BACK TO SHOP</p>
+            <p onclick="document.getElementById('cart-overlay').style.display='none'" style="cursor:pointer; margin-top:15px; font-size:0.6rem; color:#555;">BACK TO SHOP</p>
         </div>
     </div>
 
     <button class="cart-btn" onclick="document.getElementById('cart-overlay').style.display='flex'">
         COLLECTIONS (<span id="cart-count">0</span>)
     </button>
-    
-    <header><div class="logo">NYXEN</div><div class="tagline">Premium Inspired Fragrance</div></header>
+
     <main id="product-grid" class="product-grid"></main>
 
     <script>
@@ -262,7 +216,6 @@
             const count = window.bag.length;
             document.getElementById('cart-count').innerText = count;
             
-            // Shipping Banner Logic
             const sMsg = document.getElementById('shipping-msg');
             sMsg.className = ""; 
             if(count === 0) {
@@ -276,36 +229,31 @@
                 sMsg.classList.add('msg-green');
             }
 
-            // List Items
             const list = document.getElementById('cart-items'); list.innerHTML = "";
             let itemsTotal = 0; 
             window.bag.forEach((item, index) => {
                 itemsTotal += item.price; 
                 list.innerHTML += `
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
                     <span>${item.name}</span>
                     <div class="qty-controls">
-                        <span style="color:var(--amethyst); font-weight:bold; margin-right:10px;">₱${item.price}</span>
+                        <span style="color:var(--amethyst); font-weight:bold;">₱${item.price}</span>
                         <button class="qty-btn" onclick="removeFromBag(${index})">−</button>
                         <button class="qty-btn" onclick="addToBag('${item.name}', ${item.price}, '', null)">+</button>
                     </div>
                 </div>`;
             });
-            document.getElementById('cart-total').innerText = "ITEMS: ₱" + itemsTotal;
+            document.getElementById('items-total-ui').innerText = "ITEMS: ₱" + itemsTotal;
 
-            // Real-time Shipping Breakdown Logic
             const addr = document.getElementById('c-addr').value;
             const shipUI = document.getElementById('ship-ui');
-            
             if (addr.length > 3 && count > 0) {
                 shipUI.style.display = 'block';
                 const res = calculateShipping(addr);
                 document.getElementById('ship-cost').innerText = "₱" + res.fee;
                 document.getElementById('ship-loc').innerText = "Detected: " + res.loc;
                 document.getElementById('grand-total').innerText = "₱" + (itemsTotal + res.fee);
-            } else {
-                shipUI.style.display = 'none';
-            }
+            } else { shipUI.style.display = 'none'; }
         }
     </script>
 </body>
