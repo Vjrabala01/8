@@ -8,6 +8,7 @@
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#9b59b2">
     <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
     <link rel="apple-touch-icon" href="https://i.postimg.cc/8C6m8y8y/nyxen-logo-512.png">
 
     <script type="module">
@@ -62,50 +63,31 @@
             });
         });
 
-        // --- 3. SMART TRACK ORDER LOGIC (WITH DELIVERY DETAILS) ---
+        // --- 3. SMART TRACK ORDER LOGIC ---
         window.trackOrder = async () => {
             const inputID = prompt("Enter your 5-digit Order ID (e.g. TLMLX):");
             if(!inputID) return;
-            
             const cleanInput = inputID.trim().toUpperCase();
             
             try {
                 const querySnapshot = await getDocs(collection(db, "orders"));
                 let found = false;
-
                 querySnapshot.forEach((doc) => {
                     const fullID = doc.id.toUpperCase();
                     if (fullID.endsWith(cleanInput)) {
                         const data = doc.data();
-                        
-                        // Construct Tracking Info
                         let trackingInfo = `NYXEN TRACKER 🚚\n\n`;
                         trackingInfo += `Order ID: #${cleanInput}\n`;
-                        trackingInfo += `Customer: ${data.customerName}\n`;
                         trackingInfo += `Status: ${data.status.toUpperCase()}\n`;
-                        
-                        if(data.estimatedArrival) {
-                            trackingInfo += `Est. Delivery: ${data.estimatedArrival}\n`;
-                        }
-                        
-                        if(data.tracking) {
-                            trackingInfo += `J&T Tracking: ${data.tracking}\n`;
-                        }
-
-                        trackingInfo += `\n(I-message kami sa Messenger kung may tanong ka, Bro!)`;
-                        
+                        if(data.estimatedArrival) trackingInfo += `Est. Delivery: ${data.estimatedArrival}\n`;
+                        if(data.tracking) trackingInfo += `J&T Tracking: ${data.tracking}\n`;
+                        trackingInfo += `\nCustomer: ${data.customerName}`;
                         alert(trackingInfo);
                         found = true;
                     }
                 });
-
-                if (!found) {
-                    alert("Order ID not found, Bro. Siguraduhin na tama ang 5 letters galing sa message!");
-                }
-            } catch (e) {
-                console.error(e);
-                alert("Error sa pag-track. Try again later!");
-            }
+                if (!found) alert("Order ID not found, Bro!");
+            } catch (e) { alert("Error sa pag-track."); }
         };
 
         // --- 4. ADD TO BAG ---
@@ -115,12 +97,10 @@
             const scentRef = doc(db, "inventory", name);
             try { await updateDoc(scentRef, { clicks: increment(1) }); } catch(e){}
             btn.innerText = "COLLECTED! ✨";
-            btn.style.background = "#9b59b2";
-            btn.style.color = "#fff";
+            btn.style.background = "#9b59b2"; btn.style.color = "#fff";
             setTimeout(() => {
                 btn.innerText = "ADD TO COLLECTION";
-                btn.style.background = "#fff";
-                btn.style.color = "#000";
+                btn.style.background = "#fff"; btn.style.color = "#000";
             }, 1000);
         };
 
@@ -128,23 +108,18 @@
         window.submitOrder = async () => {
             const name = document.getElementById('c-name').value;
             const addr = document.getElementById('c-addr').value;
-            const phone = document.getElementById('c-phone').value;
-            if(!name || !addr || window.bag.length === 0) return alert("Punan ang details, Bro!");
+            if(!name || !addr || window.bag.length === 0) return alert("Punan ang details!");
             const total = window.bag.reduce((sum, item) => sum + item.price, 0);
             try {
                 const docRef = await addDoc(collection(db, "orders"), {
-                    customerName: name, address: addr, phone: phone,
+                    customerName: name, address: addr,
                     items: window.bag, totalAmount: total, status: "Pending", date: Date.now()
                 });
                 const orderID = docRef.id.slice(-5).toUpperCase();
-                let msg = `NYXEN ORDER #${orderID}\n`;
-                msg += `ID: ${docRef.id}\n\n`;
+                let msg = `NYXEN ORDER #${orderID}\n\n`;
                 window.bag.forEach(i => msg += `• ${i.name} (₱${i.price})\n`);
                 msg += `\nTOTAL: ₱${total}\nName: ${name}\nAddr: ${addr}`;
-                const encodedMsg = encodeURIComponent(msg);
-                const messengerLink = `https://m.me/296084720263105?text=${encodedMsg}`;
-                alert(`✅ ORDER SAVED (#${orderID})\n\nMapupunta ka na sa Messenger para i-send ang details. Click OK, Bro!`);
-                window.location.href = messengerLink;
+                window.location.href = `https://m.me/296084720263105?text=${encodeURIComponent(msg)}`;
             } catch (e) { alert("Error: " + e.message); }
         };
 
@@ -157,6 +132,11 @@
                 setTimeout(() => secretClicks = 0, 2000);
             }
         });
+
+        // --- APP REGISTRATION ---
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js').then(() => console.log("NYXEN App Active"));
+        }
     </script>
 
     <style>
@@ -168,67 +148,43 @@
         #local-banner { display: none; background: var(--amethyst); text-align: center; padding: 8px; font-size: 0.65rem; font-weight: bold; position: sticky; top: 0; z-index: 100; }
         .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; max-width: 1200px; margin: 0 auto; padding: 20px; }
         .product-card { background: var(--card); border: 1px solid #222; position: relative; transition: 0.4s; overflow: hidden; }
-        .product-card:hover { border-color: var(--amethyst); transform: translateY(-5px); }
         .product-card.out { opacity: 0.4; }
-        .product-card.out::after { content: "SOLD OUT"; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-15deg); background: #ff4d4d; color: white; padding: 5px 20px; font-weight: bold; font-size: 1rem; border-radius: 5px; z-index: 10; }
-        .portrait-box { aspect-ratio: 2/3; overflow: hidden; background: #000; display: flex; align-items: center; justify-content: center; }
-        .portrait-box img { width: 100%; height: 100%; object-fit: cover; transition: 0.6s; filter: brightness(0.7); }
-        .product-card:hover img { filter: brightness(1); transform: scale(1.05); }
-        .price-label { position: absolute; top: 15px; right: 0; background: var(--amethyst); padding: 5px 15px; font-weight: bold; z-index: 5; font-size: 0.9rem; }
+        .portrait-box { aspect-ratio: 2/3; overflow: hidden; }
+        .portrait-box img { width: 100%; height: 100%; object-fit: cover; filter: brightness(0.7); }
+        .price-label { position: absolute; top: 15px; right: 0; background: var(--amethyst); padding: 5px 15px; font-weight: bold; z-index: 5; }
         .info { padding: 20px; text-align: center; }
-        .info h3 { font-size: 0.85rem; letter-spacing: 2px; text-transform: uppercase; margin: 0 0 5px 0; }
-        .add-btn { background: #fff; color: #000; border: none; padding: 12px; width: 100%; font-weight: bold; cursor: pointer; margin-top: 15px; font-size: 0.7rem; transition: 0.3s; }
-        .cart-btn { position: fixed; bottom: 25px; right: 25px; background: var(--amethyst); color: #fff; border: none; padding: 15px 20px; border-radius: 50px; cursor: pointer; font-weight: bold; z-index: 1000; box-shadow: 0 10px 30px rgba(155, 89, 182, 0.5); }
-        .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.95); display: none; align-items: center; justify-content: center; z-index: 2000; padding: 20px; backdrop-filter: blur(5px); }
+        .add-btn { background: #fff; color: #000; border: none; padding: 12px; width: 100%; font-weight: bold; cursor: pointer; margin-top: 15px; }
+        .cart-btn { position: fixed; bottom: 25px; right: 25px; background: var(--amethyst); padding: 15px 20px; border-radius: 50px; border: none; color: #fff; font-weight: bold; z-index: 1000; cursor: pointer; }
+        .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); display: none; align-items: center; justify-content: center; z-index: 2000; padding: 20px; }
         .modal { background: #111; padding: 25px; border-radius: 15px; border: 1px solid var(--amethyst); width: 100%; max-width: 380px; text-align: center; }
-        input, textarea { background: #1a1a1a; border: 1px solid #333; color: #fff; width: 100%; padding: 12px; border-radius: 8px; margin-bottom: 10px; box-sizing: border-box; font-family: inherit; }
-        .checkout-btn { background: var(--amethyst); color: #fff; border: none; padding: 15px; width: 100%; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 10px; }
-        @media (max-width: 600px) { .product-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; padding: 10px; } .logo { font-size: 1.8rem; letter-spacing: 8px; } }
+        input, textarea { background: #1a1a1a; border: 1px solid #333; color: #fff; width: 100%; padding: 12px; border-radius: 8px; margin-bottom: 10px; box-sizing: border-box; }
+        .checkout-btn { background: var(--amethyst); color: #fff; border: none; padding: 15px; width: 100%; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        @media (max-width: 600px) { .product-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; } .logo { font-size: 1.8rem; } }
     </style>
 </head>
 <body>
-
     <div id="local-banner">🚚 NEGROS QUICK DELIVERY IS ACTIVE!</div>
-
-    <div id="promo-overlay" class="overlay" onclick="this.style.display='none'">
-        <div class="modal" style="padding:0; overflow:hidden; border:none; background:transparent;">
-            <img id="promo-popup-img" src="" style="width:100%; border-radius:15px; display:block;">
-            <p style="color:#888; font-size:0.6rem; margin-top:10px;">Tap to close</p>
-        </div>
-    </div>
-
+    <div id="promo-overlay" class="overlay" onclick="this.style.display='none'"><div class="modal" style="padding:0; border:none; background:transparent;"><img id="promo-popup-img" src="" style="width:100%; border-radius:15px;"></div></div>
     <div id="cart-overlay" class="overlay">
         <div class="modal">
-            <h3 style="color:var(--amethyst); letter-spacing: 2px;">YOUR BAG</h3>
-            <div id="cart-items" style="margin:20px 0; text-align:left; font-size:0.75rem; max-height: 200px; overflow-y: auto;"></div>
-            <div id="cart-total" style="font-weight:bold; border-top:1px solid #222; padding-top:10px; margin-bottom:20px; font-size: 1.1rem;">TOTAL: ₱0</div>
-            <input type="text" id="c-name" placeholder="Full Name">
-            <input type="text" id="c-phone" placeholder="Phone Number">
-            <textarea id="c-addr" placeholder="Full Delivery Address" rows="2"></textarea>
+            <h3 style="color:var(--amethyst)">YOUR BAG</h3>
+            <div id="cart-items" style="margin:20px 0; text-align:left; font-size:0.75rem;"></div>
+            <div id="cart-total" style="font-weight:bold; border-top:1px solid #222; padding-top:10px; margin-bottom:20px;">TOTAL: ₱0</div>
+            <input type="text" id="c-name" placeholder="Full Name"><textarea id="c-addr" placeholder="Delivery Address"></textarea>
             <button class="checkout-btn" onclick="submitOrder()">PROCEED TO MESSENGER</button>
             <p onclick="document.getElementById('cart-overlay').style.display='none'" style="cursor:pointer; margin-top:15px; font-size:0.7rem; color:#888;">Back to Shop</p>
         </div>
     </div>
-
     <button class="cart-btn" onclick="document.getElementById('cart-overlay').style.display='flex'">BAG (<span id="cart-count">0</span>)</button>
     <button onclick="trackOrder()" style="position:fixed; bottom:25px; left:25px; background:rgba(255,255,255,0.05); border:1px solid #222; color:#555; border-radius:50px; padding:8px 15px; font-size:0.6rem; cursor:pointer; z-index:1000;">TRACK ORDER</button>
-
-    <header>
-        <div class="logo">NYXEN</div>
-        <div class="tagline">Premium Inspired Fragrance</div>
-    </header>
-
+    <header><div class="logo">NYXEN</div><div class="tagline">Premium Inspired Fragrance</div></header>
     <main id="product-grid" class="product-grid"></main>
-
     <script>
         function updateCartUI() {
             document.getElementById('cart-count').innerText = window.bag.length;
-            const list = document.getElementById('cart-items');
-            list.innerHTML = "";
-            let total = 0;
-            window.bag.forEach(item => {
-                total += item.price;
-                list.innerHTML += `<div style="display:flex; justify-content:space-between; margin-bottom:8px;"><span>${item.name}</span><span>₱${item.price}</span></div>`;
+            const list = document.getElementById('cart-items'); list.innerHTML = "";
+            let total = 0; window.bag.forEach(item => {
+                total += item.price; list.innerHTML += `<div style="display:flex; justify-content:space-between;"><span>${item.name}</span><span>₱${item.price}</span></div>`;
             });
             document.getElementById('cart-total').innerText = "TOTAL: ₱" + total;
         }
