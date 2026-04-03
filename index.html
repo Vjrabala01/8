@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NYXEN | Premium Inspired Fragrance</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#9b59b2">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <link rel="apple-touch-icon" href="https://i.postimg.cc/8C6m8y8y/nyxen-logo-512.png">
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, doc, getDoc, onSnapshot, collection, addDoc, updateDoc, increment } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCXLACoKi11HXdQ47uEL-HnIw_R-T-44vo",
+            authDomain: "nyxen-official-183b6.firebaseapp.com",
+            projectId: "nyxen-official-183b6",
+            storageBucket: "nyxen-official-183b6.firebasestorage.app",
+            messagingSenderId: "180327659657",
+            appId: "1:180327659657:web:24d94b9d94bc349f232e58"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // --- GLOBAL VARIABLES ---
+        window.bag = [];
+
+        // --- 1. LOAD SETTINGS (PROMO & POPUP) ---
+        onSnapshot(doc(db, "settings", "flash-sale"), (d) => {
+            if(d.exists()) {
+                const s = d.data();
+                if(s.active) {
+                    document.getElementById('promo-popup-img').src = s.promoImg;
+                    document.getElementById('promo-overlay').style.display = 'flex';
+                    if(s.localQuick) document.getElementById('local-banner').style.display = 'block';
+                }
+            }
+        });
+
+        // --- 2. LOAD SCENTS (REAL-TIME) ---
+        onSnapshot(collection(db, "inventory"), (snap) => {
+            const grid = document.getElementById('product-grid');
+            grid.innerHTML = "";
+            snap.forEach(doc => {
+                const p = doc.data();
+                const isOut = p.qty <= 0;
+                grid.innerHTML += `
+                    <div class="product-card ${p.category} ${isOut ? 'out' : ''}">
+                        <div class="price-label">₱${p.price}</div>
+                        <div class="portrait-box"><img src="${p.img}" alt="${p.name}"></div>
+                        <div class="info">
+                            <h3>${p.name}</h3>
+                            <p style="font-size:0.6rem; color:#888;">${p.qty > 0 ? p.qty + ' items left' : 'OUT OF STOCK'}</p>
+                            <button class="add-btn" onclick="addToBag('${p.name}', ${p.price}, '${p.img}', this)" ${isOut ? 'disabled' : ''}>
+                                ${isOut ? 'SOLD OUT' : 'ADD TO COLLECTION'}
+                            </button>
+                        </div>
+                    </div>`;
+            });
+        });
+
+        // --- 3. TRACK ORDER LOGIC ---
+        window.trackOrder = async () => {
+            const id = prompt("Enter your Order ID (Check Messenger):");
+            if(!id) return;
+            try {
+                const d = await getDoc(doc(db, "orders", id.trim()));
+                if(d.exists()) {
+                    alert(`NYXEN TRACKER:\nOrder Status: ${d.data().status.toUpperCase()}\nCustomer: ${d.data().customerName}`);
+                } else {
+                    alert("Order ID not found, Bro. Try again!");
+                }
+            } catch(e) { alert("Error tracking order."); }
+        };
+
+        // --- 4. ADD TO BAG & CLICKS TRACKER ---
+        window.addToBag = async (name, price, img, btn) => {
+            window.bag.push({ name, price });
+            updateCartUI();
+            
+            // TRACK THE CLICK IN FIREBASE
+            const scentRef = doc(db, "inventory", name);
+            try { await updateDoc(scentRef, { clicks: increment(1) }); } catch(e){}
+
+            btn.innerText = "COLLECTED! ✨";
+            btn.style.background = "#9b59b2";
+            btn.style.color = "#fff";
+            setTimeout(() => {
+                btn.innerText = "ADD TO COLLECTION";
+                btn.style.background = "#fff";
+                btn.style.color = "#000";
+            }, 1000);
+        };
+
+        // --- 5. CHECKOUT / SUBMIT ORDER ---
+        window.submitOrder = async () => {
+            const name = document.getElementById('c-name').value;
+            const addr = document.getElementById('c-addr').value;
+            const phone = document.getElementById('c-phone').value;
+            
+            if(!name || !addr || bag.length === 0) return alert("Punan ang details, Bro!");
+
+            const total = bag.reduce((sum, item) => sum + item.price, 0);
+            
+            try {
+                const docRef = await addDoc(collection(db, "orders"), {
+                    customerName: name,
+                    address: addr,
+                    phone: phone,
+                    items: bag,
+                    totalAmount: total,
+                    status: "Pending",
+                    date: Date.now()
+                });
+
+                // Generate Message
+                let msg = `NYXEN ORDER #${docRef.id.slice(-5).toUpperCase()}\n`;
+                msg += `ID: ${docRef.id}\n\n`;
+                bag.forEach(i => msg += `• ${i.name} (₱${i.price})\n`);
+                msg += `\nTOTAL: ₱${total}\nName: ${name}\nAddr: ${addr}\n\n(PASTE THIS TO MESSENGER)`;
+                
+                await navigator.clipboard.writeText(msg);
+                alert("ORDER SAVED & COPIED! Open Messenger and PASTE it to us.");
+                window.location.href = `https://m.me/296084720263105`; 
+            } catch (e) { alert("Error saving order: " + e.message); }
+        };
+
+        // --- SECRET DOOR LOGIC ---
+        let secretClicks = 0;
+        document.addEventListener('click', (e) => {
+            if(e.target.classList.contains('tagline')) {
+                secretClicks++;
+                if(secretClicks === 3) window.location.href = 'admin.html';
+                setTimeout(() => secretClicks = 0, 2000);
+            }
+        });
+
+        // Service Worker for App
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js').catch(() => {});
+        }
+    </script>
+
+    <style>
+        :root { --amethyst: #9b59b2; --bg: #050505; --card: #111; }
+        body { background: var(--bg); color: #fff; font-family: 'Inter', sans-serif; margin: 0; padding: 0; user-select: none; }
+        header { text-align: center; padding: 60px 20px; }
+        .logo { font-size: 3rem; font-weight: 200; letter-spacing: 12px; margin-bottom: 5px; }
+        .tagline { color: var(--amethyst); font-size: 0.65rem; letter-spacing: 4px; text-transform: uppercase; cursor: pointer; }
+
+        #local-banner { display: none; background: var(--amethyst); text-align: center; padding: 8px; font-size: 0.65rem; font-weight: bold; position: sticky; top: 0; z-index: 100; }
+
+        .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; max-width: 1200px; margin: 0 auto; padding: 20px; }
+        .product-card { background: var(--card); border: 1px solid #222; position: relative; transition: 0.4s; overflow: hidden; }
+        .product-card:hover { border-color: var(--amethyst); transform: translateY(-5px); }
+        .product-card.out { opacity: 0.4; }
+        .product-card.out::after { content: "SOLD OUT"; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-15deg); background: #ff4d4d; color: white; padding: 5px 20px; font-weight: bold; font-size: 1rem; border-radius: 5px; z-index: 10; }
+
+        .portrait-box { aspect-ratio: 2/3; overflow: hidden; background: #000; display: flex; align-items: center; justify-content: center; }
+        .portrait-box img { width: 100%; height: 100%; object-fit: cover; transition: 0.6s; filter: brightness(0.7); }
+        .product-card:hover img { filter: brightness(1); transform: scale(1.05); }
+
+        .price-label { position: absolute; top: 15px; right: 0; background: var(--amethyst); padding: 5px 15px; font-weight: bold; z-index: 5; font-size: 0.9rem; }
+        .info { padding: 20px; text-align: center; }
+        .info h3 { font-size: 0.85rem; letter-spacing: 2px; text-transform: uppercase; margin: 0 0 5px 0; }
+        
+        .add-btn { background: #fff; color: #000; border: none; padding: 12px; width: 100%; font-weight: bold; cursor: pointer; margin-top: 15px; font-size: 0.7rem; transition: 0.3s; }
+
+        .cart-btn { position: fixed; bottom: 25px; right: 25px; background: var(--amethyst); color: #fff; border: none; padding: 15px 20px; border-radius: 50px; cursor: pointer; font-weight: bold; z-index: 1000; box-shadow: 0 10px 30px rgba(155, 89, 182, 0.5); }
+        
+        .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.95); display: none; align-items: center; justify-content: center; z-index: 2000; padding: 20px; backdrop-filter: blur(5px); }
+        .modal { background: #111; padding: 25px; border-radius: 15px; border: 1px solid var(--amethyst); width: 100%; max-width: 380px; text-align: center; }
+        
+        input, textarea { background: #1a1a1a; border: 1px solid #333; color: #fff; width: 100%; padding: 12px; border-radius: 8px; margin-bottom: 10px; box-sizing: border-box; font-family: inherit; }
+        .checkout-btn { background: var(--amethyst); color: #fff; border: none; padding: 15px; width: 100%; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+
+        @media (max-width: 600px) { .product-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; padding: 10px; } .logo { font-size: 1.8rem; letter-spacing: 8px; } }
+    </style>
+</head>
+<body>
+
+    <div id="local-banner">🚚 NEGROS QUICK DELIVERY IS ACTIVE!</div>
+
+    <div id="promo-overlay" class="overlay" onclick="this.style.display='none'">
+        <div class="modal" style="padding:0; overflow:hidden; border:none; background:transparent;">
+            <img id="promo-popup-img" src="" style="width:100%; border-radius:15px; display:block;">
+            <p style="color:#888; font-size:0.6rem; margin-top:10px;">Tap to close</p>
+        </div>
+    </div>
+
+    <div id="cart-overlay" class="overlay">
+        <div class="modal">
+            <h3 style="color:var(--amethyst); letter-spacing: 2px;">YOUR BAG</h3>
+            <div id="cart-items" style="margin:20px 0; text-align:left; font-size:0.75rem; max-height: 200px; overflow-y: auto;"></div>
+            <div id="cart-total" style="font-weight:bold; border-top:1px solid #222; padding-top:10px; margin-bottom:20px; font-size: 1.1rem;">TOTAL: ₱0</div>
+            
+            <input type="text" id="c-name" placeholder="Full Name">
+            <input type="text" id="c-phone" placeholder="Phone Number">
+            <textarea id="c-addr" placeholder="Full Delivery Address" rows="2"></textarea>
+            
+            <button class="checkout-btn" onclick="submitOrder()">PROCEED TO MESSENGER</button>
+            <p onclick="document.getElementById('cart-overlay').style.display='none'" style="cursor:pointer; margin-top:15px; font-size:0.7rem; color:#888;">Back to Shop</p>
+        </div>
+    </div>
+
+    <button class="cart-btn" onclick="document.getElementById('cart-overlay').style.display='flex'">BAG (<span id="cart-count">0</span>)</button>
+    <button onclick="trackOrder()" style="position:fixed; bottom:25px; left:25px; background:rgba(255,255,255,0.05); border:1px solid #222; color:#555; border-radius:50px; padding:8px 15px; font-size:0.6rem; cursor:pointer; z-index:1000;">TRACK ORDER</button>
+
+    <header>
+        <div class="logo">NYXEN</div>
+        <div class="tagline">Premium Inspired Fragrance</div>
+    </header>
+
+    <main id="product-grid" class="product-grid"></main>
+
+    <script>
+        function updateCartUI() {
+            document.getElementById('cart-count').innerText = window.bag.length;
+            const list = document.getElementById('cart-items');
+            list.innerHTML = "";
+            let total = 0;
+            window.bag.forEach(item => {
+                total += item.price;
+                list.innerHTML += `<div style="display:flex; justify-content:space-between; margin-bottom:8px;"><span>${item.name}</span><span>₱${item.price}</span></div>`;
+            });
+            document.getElementById('cart-total').innerText = "TOTAL: ₱" + total;
+        }
+    </script>
+</body>
+</html>
