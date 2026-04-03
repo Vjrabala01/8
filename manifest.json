@@ -1,0 +1,17 @@
+{
+  "name": "NYXEN Premium Fragrance",
+  "short_name": "NYXEN",
+  "description": "Premium Inspired Fragrances",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#050505",
+  "theme_color": "#9b59b2",
+  "icons": [
+    {
+      "src": "https://i.postimg.cc/8C6m8y8y/nyxen-logo-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
