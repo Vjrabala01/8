@@ -25,20 +25,19 @@
         const db = getFirestore(app);
         const auth = getAuth(app);
 
-        // --- ADDED: CLOUDINARY UPLOAD LOGIC ---
+        // --- UPDATED: CLOUDINARY UPLOAD LOGIC (NO CROPPING) ---
         window.openCloudinaryWidget = (inputId) => {
             cloudinary.openUploadWidget({
                 cloudName: 'ddcjkf3ez',
                 uploadPreset: 'nyxen_upload',
                 sources: ['local', 'camera', 'url'],
-                cropping: true,
-                croppingAspectRatio: 1,
+                cropping: false, // OFF na yung cropping bro
+                multiple: false,
                 showSkipCropButton: false
             }, (error, result) => {
                 if (!error && result && result.event === "success") {
-                    // Automatic na ilalagay yung URL sa tamang input field
                     document.getElementById(inputId).value = result.info.secure_url;
-                    alert("📸 Image Ready: URL inserted!");
+                    alert("📸 Image Ready: Original size kept!");
                 }
             });
         };
@@ -176,8 +175,7 @@
             document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
             document.getElementById(tab).style.display = 'block';
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            // Added check to prevent error on manual tab calls
-            if(event && event.target) event.target.classList.add('active');
+            if(event && event.target && event.target.classList) event.target.classList.add('active');
         };
     </script>
 
@@ -203,7 +201,6 @@
         input, select { background: #1a1a1a; border: 1px solid #333; color: white; padding: 12px; margin-bottom: 10px; width: 100%; border-radius: 8px; font-size: 0.9rem; outline: none; }
         input:focus { border-color: var(--amethyst); }
         
-        /* ADDED: Cloudinary Upload Button Style */
         .btn-upload { background: #333; color: #9b59b2; border: 1px dashed #9b59b2; padding: 10px; border-radius: 8px; width: 100%; margin-bottom: 10px; font-weight: bold; cursor: pointer; font-size: 0.8rem; display: flex; align-items: center; justify-content: center; gap: 8px; }
         .btn-upload:hover { background: #1a1a1a; }
 
